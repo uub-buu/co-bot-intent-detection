@@ -1,0 +1,246 @@
+2026-09-13 01:17:48,523 - pyskl - INFO - Environment info:
+------------------------------------------------------------
+sys.platform: linux
+Python: 3.10.21 (main, Aug 27 2026, 14:42:07) [GCC 14.3.0]
+CUDA available: True
+GPU 0: Tesla T4
+CUDA_HOME: /usr/local/cuda
+NVCC: Cuda compilation tools, release 12.8, V12.8.93
+GCC: gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0
+PyTorch: 1.11.0+cu113
+PyTorch compiling details: PyTorch built with:
+  - GCC 7.3
+  - C++ Version: 201402
+  - Intel(R) Math Kernel Library Version 2020.0.0 Product Build 20191122 for Intel(R) 64 architecture applications
+  - Intel(R) MKL-DNN v2.5.2 (Git Hash a9302535553c73243c632ad3c4c80beec3d19a1e)
+  - OpenMP 201511 (a.k.a. OpenMP 4.5)
+  - LAPACK is enabled (usually provided by MKL)
+  - NNPACK is enabled
+  - CPU capability usage: AVX2
+  - CUDA Runtime 11.3
+  - NVCC architecture flags: -gencode;arch=compute_37,code=sm_37;-gencode;arch=compute_50,code=sm_50;-gencode;arch=compute_60,code=sm_60;-gencode;arch=compute_70,code=sm_70;-gencode;arch=compute_75,code=sm_75;-gencode;arch=compute_80,code=sm_80;-gencode;arch=compute_86,code=sm_86
+  - CuDNN 8.2
+  - Magma 2.5.2
+  - Build settings: BLAS_INFO=mkl, BUILD_TYPE=Release, CUDA_VERSION=11.3, CUDNN_VERSION=8.2.0, CXX_COMPILER=/opt/rh/devtoolset-7/root/usr/bin/c++, CXX_FLAGS= -Wno-deprecated -fvisibility-inlines-hidden -DUSE_PTHREADPOOL -fopenmp -DNDEBUG -DUSE_KINETO -DUSE_FBGEMM -DUSE_QNNPACK -DUSE_PYTORCH_QNNPACK -DUSE_XNNPACK -DSYMBOLICATE_MOBILE_DEBUG_HANDLE -DEDGE_PROFILER_USE_KINETO -O2 -fPIC -Wno-narrowing -Wall -Wextra -Werror=return-type -Wno-missing-field-initializers -Wno-type-limits -Wno-array-bounds -Wno-unknown-pragmas -Wno-sign-compare -Wno-unused-parameter -Wno-unused-function -Wno-unused-result -Wno-unused-local-typedefs -Wno-strict-overflow -Wno-strict-aliasing -Wno-error=deprecated-declarations -Wno-stringop-overflow -Wno-psabi -Wno-error=pedantic -Wno-error=redundant-decls -Wno-error=old-style-cast -fdiagnostics-color=always -faligned-new -Wno-unused-but-set-variable -Wno-maybe-uninitialized -fno-math-errno -fno-trapping-math -Werror=format -Wno-stringop-overflow, LAPACK_INFO=mkl, PERF_WITH_AVX=1, PERF_WITH_AVX2=1, PERF_WITH_AVX512=1, TORCH_VERSION=1.11.0, USE_CUDA=ON, USE_CUDNN=ON, USE_EXCEPTION_PTR=1, USE_GFLAGS=OFF, USE_GLOG=OFF, USE_MKL=ON, USE_MKLDNN=OFF, USE_MPI=OFF, USE_NCCL=ON, USE_NNPACK=ON, USE_OPENMP=ON, USE_ROCM=OFF, 
+
+TorchVision: 0.12.0+cu113
+OpenCV: 5.0.0
+MMCV: 1.5.0
+MMCV Compiler: GCC 7.3
+MMCV CUDA Compiler: 11.3
+pyskl: 0.1.0+eb042bb
+------------------------------------------------------------
+
+2026-09-13 01:17:48,660 - pyskl - INFO - Config: model = dict(
+    type='RecognizerGCN',
+    backbone=dict(
+        type='STGCN',
+        tcn_type='dwstcn',
+        graph_cfg=dict(layout='coco', mode='spatial')),
+    cls_head=dict(type='GCNHead', num_classes=51, in_channels=256))
+dataset_type = 'PoseDataset'
+ann_file = '/content/pyskl_data/hmdb51_hrnet.pkl'
+train_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+val_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100, num_clips=1),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+test_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100, num_clips=10),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+data = dict(
+    videos_per_gpu=16,
+    workers_per_gpu=2,
+    test_dataloader=dict(videos_per_gpu=1),
+    train=dict(
+        type='RepeatDataset',
+        times=5,
+        dataset=dict(
+            type='PoseDataset',
+            ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+            pipeline=[
+                dict(type='PreNormalize2D'),
+                dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+                dict(type='UniformSample', clip_len=100),
+                dict(type='PoseDecode'),
+                dict(type='FormatGCNInput', num_person=2),
+                dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+                dict(type='ToTensor', keys=['keypoint'])
+            ],
+            split='train1')),
+    val=dict(
+        type='PoseDataset',
+        ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+        pipeline=[
+            dict(type='PreNormalize2D'),
+            dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+            dict(type='UniformSample', clip_len=100, num_clips=1),
+            dict(type='PoseDecode'),
+            dict(type='FormatGCNInput', num_person=2),
+            dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+            dict(type='ToTensor', keys=['keypoint'])
+        ],
+        split='test1'),
+    test=dict(
+        type='PoseDataset',
+        ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+        pipeline=[
+            dict(type='PreNormalize2D'),
+            dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+            dict(type='UniformSample', clip_len=100, num_clips=10),
+            dict(type='PoseDecode'),
+            dict(type='FormatGCNInput', num_person=2),
+            dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+            dict(type='ToTensor', keys=['keypoint'])
+        ],
+        split='test1'))
+optimizer = dict(
+    type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0005, nesterov=True)
+optimizer_config = dict(grad_clip=None)
+lr_config = dict(policy='CosineAnnealing', min_lr=0, by_epoch=False)
+total_epochs = 16
+checkpoint_config = dict(interval=1)
+evaluation = dict(interval=1, metrics=['top_k_accuracy'])
+log_config = dict(interval=100, hooks=[dict(type='TextLoggerHook')])
+log_level = 'INFO'
+work_dir = '/content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51'
+dist_params = dict(backend='gloo')
+gpu_ids = range(0, 1)
+resume_from = '/content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51/latest.pth'
+
+2026-09-13 01:17:48,661 - pyskl - INFO - Set random seed to 1024737123, deterministic: False
+2026-09-13 01:17:49,749 - pyskl - INFO - 3570 videos remain after valid thresholding
+2026-09-13 01:17:55,417 - pyskl - INFO - 1530 videos remain after valid thresholding
+2026-09-13 01:17:55,420 - pyskl - INFO - load checkpoint from local path: /content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51/latest.pth
+2026-09-13 01:17:55,581 - pyskl - INFO - resumed epoch 13, iter 14508
+2026-09-13 01:17:55,584 - pyskl - INFO - Start running, host: root@d67ee67eec23, work_dir: /content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51
+2026-09-13 01:17:55,585 - pyskl - INFO - Hooks will be executed in the following order:
+before_run:
+(VERY_HIGH   ) CosineAnnealingLrUpdaterHook       
+(NORMAL      ) CheckpointHook                     
+(NORMAL      ) DistEvalHook                       
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_train_epoch:
+(VERY_HIGH   ) CosineAnnealingLrUpdaterHook       
+(NORMAL      ) DistSamplerSeedHook                
+(NORMAL      ) DistEvalHook                       
+(LOW         ) IterTimerHook                      
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_train_iter:
+(VERY_HIGH   ) CosineAnnealingLrUpdaterHook       
+(NORMAL      ) DistEvalHook                       
+(LOW         ) IterTimerHook                      
+ -------------------- 
+after_train_iter:
+(ABOVE_NORMAL) OptimizerHook                      
+(NORMAL      ) CheckpointHook                     
+(NORMAL      ) DistEvalHook                       
+(LOW         ) IterTimerHook                      
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+after_train_epoch:
+(NORMAL      ) CheckpointHook                     
+(NORMAL      ) DistEvalHook                       
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_val_epoch:
+(NORMAL      ) DistSamplerSeedHook                
+(LOW         ) IterTimerHook                      
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+before_val_iter:
+(LOW         ) IterTimerHook                      
+ -------------------- 
+after_val_iter:
+(LOW         ) IterTimerHook                      
+ -------------------- 
+after_val_epoch:
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+after_run:
+(VERY_LOW    ) TextLoggerHook                     
+ -------------------- 
+2026-09-13 01:17:55,585 - pyskl - INFO - workflow: [('train', 1)], max: 16 epochs
+2026-09-13 01:17:55,586 - pyskl - INFO - Checkpoints will be saved to /content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51 by HardDiskBackend.
+2026-09-13 01:18:18,777 - pyskl - INFO - Epoch [14][100/1116]	lr: 7.949e-03, eta: 0:12:32, time: 0.232, data_time: 0.088, memory: 1422, top1_acc: 0.8481, top5_acc: 0.9862, loss_cls: 0.5279, loss: 0.5279
+2026-09-13 01:18:33,571 - pyskl - INFO - Epoch [14][200/1116]	lr: 7.480e-03, eta: 0:09:57, time: 0.148, data_time: 0.001, memory: 1422, top1_acc: 0.8744, top5_acc: 0.9925, loss_cls: 0.4664, loss: 0.4664
+2026-09-13 01:18:49,287 - pyskl - INFO - Epoch [14][300/1116]	lr: 7.023e-03, eta: 0:09:05, time: 0.157, data_time: 0.001, memory: 1422, top1_acc: 0.8719, top5_acc: 0.9900, loss_cls: 0.4569, loss: 0.4569
+2026-09-13 01:19:04,344 - pyskl - INFO - Epoch [14][400/1116]	lr: 6.580e-03, eta: 0:08:26, time: 0.151, data_time: 0.001, memory: 1422, top1_acc: 0.8688, top5_acc: 0.9888, loss_cls: 0.4631, loss: 0.4631
+2026-09-13 01:19:18,711 - pyskl - INFO - Epoch [14][500/1116]	lr: 6.151e-03, eta: 0:07:53, time: 0.144, data_time: 0.001, memory: 1422, top1_acc: 0.8944, top5_acc: 0.9912, loss_cls: 0.4098, loss: 0.4098
+2026-09-13 01:19:32,878 - pyskl - INFO - Epoch [14][600/1116]	lr: 5.735e-03, eta: 0:07:25, time: 0.142, data_time: 0.000, memory: 1422, top1_acc: 0.8888, top5_acc: 0.9906, loss_cls: 0.4300, loss: 0.4300
+2026-09-13 01:19:47,182 - pyskl - INFO - Epoch [14][700/1116]	lr: 5.333e-03, eta: 0:07:02, time: 0.143, data_time: 0.001, memory: 1422, top1_acc: 0.8969, top5_acc: 0.9950, loss_cls: 0.3921, loss: 0.3921
+2026-09-13 01:20:01,658 - pyskl - INFO - Epoch [14][800/1116]	lr: 4.944e-03, eta: 0:06:41, time: 0.145, data_time: 0.001, memory: 1422, top1_acc: 0.8950, top5_acc: 0.9938, loss_cls: 0.3848, loss: 0.3848
+2026-09-13 01:20:16,376 - pyskl - INFO - Epoch [14][900/1116]	lr: 4.570e-03, eta: 0:06:22, time: 0.147, data_time: 0.001, memory: 1422, top1_acc: 0.9137, top5_acc: 0.9962, loss_cls: 0.3333, loss: 0.3333
+2026-09-13 01:20:31,099 - pyskl - INFO - Epoch [14][1000/1116]	lr: 4.210e-03, eta: 0:06:05, time: 0.147, data_time: 0.001, memory: 1422, top1_acc: 0.9237, top5_acc: 0.9956, loss_cls: 0.3173, loss: 0.3173
+2026-09-13 01:20:45,716 - pyskl - INFO - Epoch [14][1100/1116]	lr: 3.863e-03, eta: 0:05:47, time: 0.146, data_time: 0.001, memory: 1422, top1_acc: 0.9250, top5_acc: 0.9931, loss_cls: 0.3091, loss: 0.3091
+2026-09-13 01:20:48,469 - pyskl - INFO - Saving checkpoint at 14 epochs
+2026-09-13 01:21:03,062 - pyskl - INFO - Evaluating top_k_accuracy ...
+2026-09-13 01:21:03,066 - pyskl - INFO - 
+top1_acc	0.4484
+top5_acc	0.7654
+2026-09-13 01:21:03,136 - pyskl - INFO - Now best checkpoint is saved as best_top1_acc_epoch_14.pth.
+2026-09-13 01:21:03,137 - pyskl - INFO - Best top1_acc is 0.4484 at 14 epoch.
+2026-09-13 01:21:03,137 - pyskl - INFO - Epoch(val) [14][96]	top1_acc: 0.4484, top5_acc: 0.7654
+2026-09-13 01:21:27,510 - pyskl - INFO - Epoch [15][100/1116]	lr: 3.480e-03, eta: 0:05:40, time: 0.244, data_time: 0.097, memory: 1422, top1_acc: 0.9375, top5_acc: 0.9975, loss_cls: 0.2898, loss: 0.2898
+2026-09-13 01:21:43,256 - pyskl - INFO - Epoch [15][200/1116]	lr: 3.165e-03, eta: 0:05:24, time: 0.157, data_time: 0.001, memory: 1422, top1_acc: 0.9519, top5_acc: 0.9962, loss_cls: 0.2543, loss: 0.2543
+2026-09-13 01:21:58,363 - pyskl - INFO - Epoch [15][300/1116]	lr: 2.864e-03, eta: 0:05:07, time: 0.151, data_time: 0.001, memory: 1422, top1_acc: 0.9444, top5_acc: 0.9981, loss_cls: 0.2555, loss: 0.2555
+2026-09-13 01:22:12,746 - pyskl - INFO - Epoch [15][400/1116]	lr: 2.578e-03, eta: 0:04:49, time: 0.144, data_time: 0.000, memory: 1422, top1_acc: 0.9600, top5_acc: 0.9969, loss_cls: 0.2283, loss: 0.2283
+2026-09-13 01:22:26,999 - pyskl - INFO - Epoch [15][500/1116]	lr: 2.306e-03, eta: 0:04:32, time: 0.143, data_time: 0.000, memory: 1422, top1_acc: 0.9531, top5_acc: 0.9975, loss_cls: 0.2434, loss: 0.2434
+2026-09-13 01:22:41,299 - pyskl - INFO - Epoch [15][600/1116]	lr: 2.050e-03, eta: 0:04:15, time: 0.143, data_time: 0.001, memory: 1422, top1_acc: 0.9537, top5_acc: 0.9988, loss_cls: 0.2227, loss: 0.2227
+2026-09-13 01:22:55,857 - pyskl - INFO - Epoch [15][700/1116]	lr: 1.808e-03, eta: 0:03:58, time: 0.146, data_time: 0.001, memory: 1422, top1_acc: 0.9625, top5_acc: 0.9994, loss_cls: 0.2021, loss: 0.2021
+2026-09-13 01:23:10,624 - pyskl - INFO - Epoch [15][800/1116]	lr: 1.581e-03, eta: 0:03:42, time: 0.148, data_time: 0.001, memory: 1422, top1_acc: 0.9581, top5_acc: 0.9975, loss_cls: 0.2190, loss: 0.2190
+2026-09-13 01:23:25,495 - pyskl - INFO - Epoch [15][900/1116]	lr: 1.369e-03, eta: 0:03:26, time: 0.149, data_time: 0.001, memory: 1422, top1_acc: 0.9613, top5_acc: 1.0000, loss_cls: 0.1927, loss: 0.1927
+2026-09-13 01:23:40,175 - pyskl - INFO - Epoch [15][1000/1116]	lr: 1.172e-03, eta: 0:03:10, time: 0.147, data_time: 0.001, memory: 1422, top1_acc: 0.9619, top5_acc: 0.9988, loss_cls: 0.2071, loss: 0.2071
+2026-09-13 01:23:54,696 - pyskl - INFO - Epoch [15][1100/1116]	lr: 9.901e-04, eta: 0:02:54, time: 0.145, data_time: 0.000, memory: 1422, top1_acc: 0.9656, top5_acc: 1.0000, loss_cls: 0.1990, loss: 0.1990
+2026-09-13 01:23:57,433 - pyskl - INFO - Saving checkpoint at 15 epochs
+2026-09-13 01:24:11,873 - pyskl - INFO - Evaluating top_k_accuracy ...
+2026-09-13 01:24:11,877 - pyskl - INFO - 
+top1_acc	0.4301
+top5_acc	0.7647
+2026-09-13 01:24:11,877 - pyskl - INFO - Epoch(val) [15][96]	top1_acc: 0.4301, top5_acc: 0.7647
+2026-09-13 01:24:35,021 - pyskl - INFO - Epoch [16][100/1116]	lr: 7.983e-04, eta: 0:02:38, time: 0.231, data_time: 0.085, memory: 1422, top1_acc: 0.9669, top5_acc: 0.9994, loss_cls: 0.1741, loss: 0.1741
+2026-09-13 01:24:50,761 - pyskl - INFO - Epoch [16][200/1116]	lr: 6.493e-04, eta: 0:02:23, time: 0.157, data_time: 0.001, memory: 1422, top1_acc: 0.9719, top5_acc: 0.9994, loss_cls: 0.1793, loss: 0.1793
+2026-09-13 01:25:05,859 - pyskl - INFO - Epoch [16][300/1116]	lr: 5.157e-04, eta: 0:02:07, time: 0.151, data_time: 0.001, memory: 1422, top1_acc: 0.9731, top5_acc: 0.9994, loss_cls: 0.1686, loss: 0.1686
+2026-09-13 01:25:20,329 - pyskl - INFO - Epoch [16][400/1116]	lr: 3.973e-04, eta: 0:01:51, time: 0.145, data_time: 0.000, memory: 1422, top1_acc: 0.9744, top5_acc: 0.9988, loss_cls: 0.1701, loss: 0.1701
+2026-09-13 01:25:34,633 - pyskl - INFO - Epoch [16][500/1116]	lr: 2.943e-04, eta: 0:01:35, time: 0.143, data_time: 0.001, memory: 1422, top1_acc: 0.9706, top5_acc: 0.9994, loss_cls: 0.1770, loss: 0.1770
+2026-09-13 01:25:48,967 - pyskl - INFO - Epoch [16][600/1116]	lr: 2.067e-04, eta: 0:01:19, time: 0.143, data_time: 0.001, memory: 1422, top1_acc: 0.9731, top5_acc: 0.9981, loss_cls: 0.1824, loss: 0.1824
+2026-09-13 01:26:03,528 - pyskl - INFO - Epoch [16][700/1116]	lr: 1.345e-04, eta: 0:01:04, time: 0.146, data_time: 0.000, memory: 1422, top1_acc: 0.9706, top5_acc: 0.9994, loss_cls: 0.1734, loss: 0.1734
+2026-09-13 01:26:18,253 - pyskl - INFO - Epoch [16][800/1116]	lr: 7.775e-05, eta: 0:00:48, time: 0.147, data_time: 0.001, memory: 1422, top1_acc: 0.9738, top5_acc: 0.9988, loss_cls: 0.1744, loss: 0.1744
+2026-09-13 01:26:32,985 - pyskl - INFO - Epoch [16][900/1116]	lr: 3.644e-05, eta: 0:00:33, time: 0.147, data_time: 0.000, memory: 1422, top1_acc: 0.9719, top5_acc: 0.9994, loss_cls: 0.1759, loss: 0.1759
+2026-09-13 01:26:47,505 - pyskl - INFO - Epoch [16][1000/1116]	lr: 1.059e-05, eta: 0:00:17, time: 0.145, data_time: 0.001, memory: 1422, top1_acc: 0.9725, top5_acc: 1.0000, loss_cls: 0.1657, loss: 0.1657
+2026-09-13 01:27:01,957 - pyskl - INFO - Epoch [16][1100/1116]	lr: 2.237e-07, eta: 0:00:02, time: 0.145, data_time: 0.001, memory: 1422, top1_acc: 0.9669, top5_acc: 1.0000, loss_cls: 0.2032, loss: 0.2032
+2026-09-13 01:27:05,032 - pyskl - INFO - Saving checkpoint at 16 epochs
+2026-09-13 01:27:19,210 - pyskl - INFO - Evaluating top_k_accuracy ...
+2026-09-13 01:27:19,217 - pyskl - INFO - 
+top1_acc	0.4281
+top5_acc	0.7634
+2026-09-13 01:27:19,217 - pyskl - INFO - Epoch(val) [16][96]	top1_acc: 0.4281, top5_acc: 0.7634
+2026-09-13 01:27:23,101 - pyskl - INFO - 1530 videos remain after valid thresholding
+2026-09-13 01:28:19,357 - pyskl - INFO - Testing results of the last checkpoint
+2026-09-13 01:28:19,358 - pyskl - INFO - top1_acc: 0.4458
+2026-09-13 01:28:19,358 - pyskl - INFO - top5_acc: 0.7693
+2026-09-13 01:28:19,358 - pyskl - INFO - load checkpoint from local path: /content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51/best_top1_acc_epoch_14.pth
+2026-09-13 01:29:13,446 - pyskl - INFO - Testing results of the best checkpoint
+2026-09-13 01:29:13,446 - pyskl - INFO - top1_acc: 0.4451
+2026-09-13 01:29:13,447 - pyskl - INFO - top5_acc: 0.7680
