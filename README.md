@@ -14,3 +14,14 @@ Setup:
 5. Go to project root and run `cmake -S . -B build` (one-time)
 
 6. Build with `cmake --build build -j$(nproc)`
+## Setup
+### Essentials
+1. Ensure Python 3.10 (this stack does not have wheels for 3.11+)
+2. `pip install -r requirements.txt`
+3. Clone this repo, then from inside it: 
+    * `pip install -e . --no-deps`
+4. `export MPLBACKEND=Agg`
+
+## Running the model comparison
+
+`python compare_models.p`
