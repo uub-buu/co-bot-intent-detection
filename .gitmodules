@@ -1,0 +1,3 @@
+[submodule "pyskl"]
+	path = pyskl
+	url = https://github.com/uub-buu/pyskl.git
