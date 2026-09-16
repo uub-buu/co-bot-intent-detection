@@ -27,4 +27,3 @@ packaging
 mediapipe
 opencv-python
 onnxruntime 
-
