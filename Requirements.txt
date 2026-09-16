@@ -18,3 +18,9 @@ fvcore
 moviepy
 pymemcache
 opencv-contrib-python
+
+## packages needed for snpe
+# onnx version 1.9.0 requires cmake and protobuf-compiler
+onnx==1.9.0
+packaging
+
