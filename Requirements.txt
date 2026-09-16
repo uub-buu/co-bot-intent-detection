@@ -1,0 +1,20 @@
+# using old version of pytorch in colab
+--find-links https://download.pytorch.org/whl/torch_stable.html
+torch==1.11.0+cu113
+torchvision==0.12.0+cu113
+
+#  older versions are needed for older version of pytorch
+numpy<2
+setuptools<81
+yapf<0.40
+
+--find-links https://download.openmmlab.com/mmcv/dist/cu113/torch1.11.0/index.html
+mmcv-full==1.5.0
+
+matplotlib
+scipy
+decord
+fvcore
+moviepy
+pymemcache
+opencv-contrib-python
