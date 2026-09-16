@@ -26,4 +26,9 @@ packaging
 
 mediapipe
 opencv-python
+<<<<<<< HEAD
 onnxruntime 
+=======
+onnxruntime 
+
+>>>>>>> e65f3f6 (restructure folder)

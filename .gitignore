@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # cmake build files
 build/
 
@@ -9,4 +10,6 @@ libs/
 data/
 
 pyskl/
+=======
+>>>>>>> e65f3f6 (restructure folder)
 stgcn_pipeline_env/
