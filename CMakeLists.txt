@@ -20,7 +20,7 @@ target_include_directories(
   PRIVATE
     inc
     ${OpenCV_INCLUDE_DIRS}
-    ${QAIRT_ROOT}/include/SNPE
+    ${QAIRT_ROOT}/include
 )
 
 # TODO: Maybe check the GCC version?
@@ -35,4 +35,8 @@ target_link_libraries(
     ${OpenCV_LIBS}
     Threads::Threads
     SNPE
+)
+
+set_target_properties(cobid PROPERTIES
+  BUILD_RPATH "${QAIRT_LIB_DIR}"
 )

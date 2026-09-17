@@ -19,38 +19,35 @@
 
 namespace
 {
-  Snpe_Runtime_t choose_runtime
-  (
-    bool prefer_gpu
-  )
+  bool is_gpu_available()
   {
-    if (prefer_gpu && Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_GPU))
+    if (Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_GPU))
     {
-      return SNPE_RUNTIME_GPU;
+      return true;
     }
 
     std::fprintf(
       stderr,
-      "[stgcn_gpu_offload] GPU runtime unavailable, falling back to CPU\n");
+      "[stgcn_gpu_offload] GPU runtime unavailable. Check that the \
+      Adreno GPU driver/runtime is present.\n");
 
-    return SNPE_RUNTIME_CPU;
+    return false;
   }
 }
 
 StgcnGpuOffload::StgcnGpuOffload
 (
-  const std::string& model_path,
-  bool                prefer_gpu
+  const std::string& model_path
 )
 {
-  Snpe_Runtime_t            runtime = SNPE_RUNTIME_CPU;
   Snpe_StringList_Handle_t  input_names_handle = nullptr;
   Snpe_RuntimeList_Handle_t runtime_list_handle = nullptr;
+  
+  /* Read the .dlc file*/
+  container_handle_t = Snpe_DlContainer_Open(model_path.c_str());
 
-  container_handle_ = Snpe_DlContainer_Open(model_path.c_str());
-
-  /* Sanity check(s) */
-  if (!container_handle_)
+  /* Sanity check */
+  if (!container_handle_t)
   {
     std::fprintf(
       stderr,
@@ -58,59 +55,67 @@ StgcnGpuOffload::StgcnGpuOffload
 
     return;
   }
-
-  /* Same pattern as PoseDSPOffload -- only the runtime constant differs */
-  runtime = choose_runtime(prefer_gpu);
-  runtime_list_handle = Snpe_RuntimeList_Create();
-  Snpe_RuntimeList_Add(runtime_list_handle, runtime);
-
-  builder_handle_ = Snpe_SNPEBuilder_Create(container_handle_);
-  Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_, runtime_list_handle);
-  Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_, false);
-  snpe_handle_ = Snpe_SNPEBuilder_Build(builder_handle_);
-
-  Snpe_RuntimeList_Delete(runtime_list_handle);
-
-  if (!snpe_handle_)
+  /* Sanity check */
+  if (!is_gpu_available())
   {
-    std::fprintf(stderr, "[stgcn_gpu_offload] Failed to build SNPE instance\n");
+    Snpe_DlContainer_Delete(container_handle_t);
+    container_handle_t = nullptr;
+    return;
+  }
+  /* create snpe runtime list with just GPU on it. This will allow builder to process*/
+  runtime_list_handle = Snpe_RuntimeList_Create();
+  Snpe_RuntimeList_Add(runtime_list_handle, SNPE_RUNTIME_GPU);
+
+  builder_handle_t = Snpe_SNPEBuilder_Create(container_handle_t);
+  Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_t, runtime_list_handle);
+  Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_t, false);
+  /* This command will build our container into a runnable model for the GPU*/
+  snpe_handle_t = Snpe_SNPEBuilder_Build(builder_handle_t);
+  // we do not need the list after builder is configured
+  Snpe_RuntimeList_Delete(runtime_list_handle);
+  
+  /* Sanity check: Did containter build? will return nullptr if it did. */
+  if (!snpe_handle_t)
+  {
+    std::fprintf(stderr, "[stgcn_gpu_offload] Failed to build SNPE instance!\n");
     return;
   }
 
-  input_names_handle = Snpe_SNPE_GetInputTensorNames(snpe_handle_);
+  input_names_handle = Snpe_SNPE_GetInputTensorNames(snpe_handle_t);
 
   if (!input_names_handle || (0 == Snpe_StringList_Size(input_names_handle)))
   {
     std::fprintf(stderr, "[stgcn_gpu_offload] Model reports no input tensors\n");
-    snpe_handle_ = nullptr;
+    snpe_handle_t = nullptr;
     return;
   }
 
-  input_tensor_name_ = Snpe_StringList_At(input_names_handle, 0);
-  input_shape_handle_ = Snpe_SNPE_GetInputDimensions(snpe_handle_, input_tensor_name_.c_str());
+  input_tensor_name = Snpe_StringList_At(input_names_handle, 0);
+  /* use the input name to get input shape from SNPE objectt*/
+  input_shape_handle_t = Snpe_SNPE_GetInputDimensions(snpe_handle_t, input_tensor_name.c_str());
   Snpe_StringList_Delete(input_names_handle);
 }
 
 StgcnGpuOffload::~StgcnGpuOffload()
 {
-  if (input_shape_handle_)
+  if (input_shape_handle_t)
   {
-    Snpe_TensorShape_Delete(input_shape_handle_);
+    Snpe_TensorShape_Delete(input_shape_handle_t);
   }
 
-  if (snpe_handle_)
+  if (snpe_handle_t)
   {
-    Snpe_SNPE_Delete(snpe_handle_);
+    Snpe_SNPE_Delete(snpe_handle_t);
   }
 
-  if (builder_handle_)
+  if (builder_handle_t)
   {
-    Snpe_SNPEBuilder_Delete(builder_handle_);
+    Snpe_SNPEBuilder_Delete(builder_handle_t);
   }
 
-  if (container_handle_)
+  if (container_handle_t)
   {
-    Snpe_DlContainer_Delete(container_handle_);
+    Snpe_DlContainer_Delete(container_handle_t);
   }
 }
 
@@ -122,10 +127,7 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
   Snpe_ITensor_Handle_t tensor_handle = nullptr;
   void                  *tensor_data = nullptr;
 
-  /* Sanity check(s) -- unlike PoseDSPOffload::preprocess, there is no
-     resize/normalize step here: the caller is responsible for handing us
-     an already-normalized, already-sized clip. This class is a pure
-     "flatten to tensor, run, read scores back" wrapper. */
+  /* Sanity check: is clip 100 frames long*/
   if (clip.size() != static_cast<size_t>(kClipLen))
   {
     std::fprintf(
@@ -135,7 +137,7 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
     return nullptr;
   }
 
-  tensor_handle = Snpe_Util_CreateITensor(input_shape_handle_);
+  tensor_handle = Snpe_Util_CreateITensor(input_shape_handle_t);
   if (!tensor_handle)
   {
     std::fprintf(
@@ -144,12 +146,9 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
   }
 
   tensor_data = Snpe_ITensor_GetData(tensor_handle);
+  /* this will be our 1D array for VRAM for the GPU*/
   float* dst = static_cast<float*>(tensor_data);
 
-  /* Model input layout is (N=1, M=kNumPerson, T=kClipLen, V=kNumCocoJoints, C=3)
-     -- matches the (1, 2, 100, 17, 3) shape the ONNX export used, flattened
-     in row-major order. This loop order must match that exactly, or the
-     model will silently receive garbage (wrong axes swapped). */
   size_t idx = 0;
   for (int m = 0; m < kNumPerson; ++m)
   {
@@ -180,17 +179,13 @@ bool StgcnGpuOffload::postprocess
   Snpe_StringList_Handle_t output_names_handle =
     Snpe_TensorMap_GetTensorNames(output_map_handle);
 
-  /* Sanity check(s) */
+  /* Sanity check */
   if (!output_names_handle || (0 == Snpe_StringList_Size(output_names_handle)))
   {
     std::fprintf(stderr, "[stgcn_gpu_offload] No output tensors returned\n");
     return false;
   }
 
-  /* The exported ONNX graph has a single output ('action_scores', shape
-     (1, kNumClasses)) -- unlike PoseDSPOffload, there's no need to scan
-     for a specific size among multiple outputs, but we still verify the
-     size defensively rather than assuming index 0 is correct. */
   const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
   for (size_t i = 0; i < num_outputs; ++i)
   {
@@ -230,12 +225,11 @@ bool StgcnGpuOffload::postprocess
     }
   }
 
-  /* Softmax, computed only for reporting a human-readable confidence --
-     does not affect the argmax decision above (softmax is monotonic). */
+  /* ssoftmax, computed only for human-readable confidence */
   float sum_exp = 0.0f;
   for (int i = 0; i < kNumClasses; ++i)
   {
-    sum_exp += std::exp(scores[i] - best_score);  // shift by max for stability
+    sum_exp += std::exp(scores[i] - best_score); //
   }
   const float confidence = 1.0f / sum_exp;  // exp(best - best) / sum_exp == 1 / sum_exp
 
@@ -271,11 +265,11 @@ bool StgcnGpuOffload::classify
 
   input_map_handle = Snpe_TensorMap_Create();
   Snpe_TensorMap_Add(
-    input_map_handle, input_tensor_name_.c_str(), input_tensor_handle);
+    input_map_handle, input_tensor_name.c_str(), input_tensor_handle);
 
   output_map_handle = Snpe_TensorMap_Create();
 
-  Snpe_SNPE_ExecuteITensors(snpe_handle_, input_map_handle, output_map_handle);
+  Snpe_SNPE_ExecuteITensors(snpe_handle_t, input_map_handle, output_map_handle);
 
   ret = postprocess(output_map_handle, out_result);
 
