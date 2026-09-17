@@ -2,7 +2,6 @@
 #define POSE_DSP_OFFLOAD_H
 
 /*
- * TODO:
  * Using the Snpe_* APIs from the Qualcomm AI Runtime SDK
  *
  * Below numbers were with BlazePose's "lite" model - placeholder for now,
@@ -33,7 +32,6 @@
  * Data
  ******************************************************************************/
 
-/* TODO: Update with Brian's model */
 /* Total landmarks in the Identity tensor */
 constexpr int kNumLandmarksRaw = 39;
 

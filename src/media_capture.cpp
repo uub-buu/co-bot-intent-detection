@@ -1,12 +1,13 @@
 /*
   media_capture.cpp
 
-  We originally intended to be implemented on a real-time camera feed, but later
-  scaled down to running on pre-recorded video files only.
+  We originally intended to be implemented on a real-time camera feed, but
+  later scaled down to running on pre-recorded video files only.
 
-  This reads frames on their own thread, and pushes them into a thread-safe queue.
-  The consumer side of that queue is where the FastRPC offload to the Hexagon DSP
-  (pose estimation) plugs in (stubbed as of now).
+  This reads frames on their own thread, and pushes them into a thread-safe
+  queue. The consumer side of that queue runs the real pipeline: DSP pose
+  estimation (PoseDSPOffload), MediaPipe -> COCO-17 joint remap, and the CPU
+  windowing buffer. GPU STGCN offload stubbed.
 */
 
 /*******************************************************************************
@@ -23,8 +24,13 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include <opencv2/opencv.hpp>
+
+#include "joint_remap.h"
+#include "pose_dsp_offload.h"
+#include "windowing_buffer.h"
 
 
 /*******************************************************************************
@@ -41,7 +47,8 @@ struct Frame
 /*
  * ThreadSafeQueue
  *
- * Bounded producer/consumer queue between the capture thread and DSP offload.
+ * Bounded producer/consumer queue between the capture thread and the
+ * pose/remap/windowing pipeline.
  */
 template <typename T>
 class ThreadSafeQueue
@@ -148,8 +155,9 @@ class VideoSource
 
 /*
  * capture_loop
- * Runs in its own thread, pushing frames into frame_queue
- * until the source runs out of frames or stop_requested is set.
+ *
+ * Runs in its own thread, pushing frames into frame_queue until the source
+ * runs out of frames or stop_requested is set.
  */
 void capture_loop
 (
@@ -158,9 +166,12 @@ void capture_loop
   std::atomic<bool>&      stop_requested
 )
 {
-  Frame        frame;
-  int          frame_index = 0;
-  const auto   start_time = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point now;
+  Frame                                 frame;
+  double                                timestamp_ms;
+  int                                   frame_index = 0;
+  const auto                            start_time =
+    std::chrono::steady_clock::now();
 
   while (!stop_requested.load())
   {
@@ -170,15 +181,15 @@ void capture_loop
       break;
     }
 
-    const auto now = std::chrono::steady_clock::now();
-    const double timestamp_ms =
+    now = std::chrono::steady_clock::now();
+    timestamp_ms =
       std::chrono::duration<double, std::milli>(now - start_time).count();
 
     frame.image = std::move(*maybe_frame);
     frame.index = frame_index++;
     frame.timestamp_ms = timestamp_ms;
 
-    frame_queue.push(std::move(frame));
+    frame_queue.push(frame);
   }
 
   frame_queue.stop();
@@ -190,16 +201,38 @@ void capture_loop
  ******************************************************************************/
 
 /*
- * TODO: FastRPC offload (stub as of now)
+ * process_frame
+ *
+ * Runs one captured frame through the real pipeline: DSP pose estimation,
+ * MediaPipe -> COCO-17 remap, and the CPU windowing buffer.
  */
-void offload_to_pose_estimation
+void process_frame
 (
-  const Frame& frame
+  const Frame&     frame,
+  PoseDSPOffload&  pose_model,
+  WindowingBuffer& window_buffer
 )
 {
-  std::printf(
-    "[stub] Frame %d (t = %.1fms, %dx%d) Ready for DSP pose offload\n",
-    frame.index, frame.timestamp_ms, frame.image.cols, frame.image.rows);
+  JointFrame mediapipe_joints;
+
+  if (!pose_model.estimate(frame.image, mediapipe_joints))
+  {
+    std::fprintf(
+      stderr, "Pose estimation failed on frame %d\n", frame.index);
+    return;
+  }
+
+  const CocoFrame coco_joints = remap_mediapipe_to_coco17(mediapipe_joints);
+  const std::optional<std::vector<float>> window =
+    window_buffer.add_frame(coco_joints);
+
+  if (window.has_value())
+  {
+    /* TODO: GPU STGCN offload */
+    std::printf(
+      "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
+      frame.index, window->size());
+  }
 }
 
 /*
@@ -215,9 +248,12 @@ int main
   if (argc < 2)
   {
     std::fprintf(
-      stderr, "Usage: %s <video_path>\n", argv[0]);
+      stderr, "Usage: %s <video_path> [pose_model_path]\n", argv[0]);
     return 1;
   }
+
+  const std::string pose_model_path =
+    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite.dlc";
 
   std::optional<VideoSource> source;
   source.emplace(std::string(argv[1]));
@@ -228,6 +264,17 @@ int main
     return 1;
   }
 
+  PoseDSPOffload pose_model(pose_model_path);
+  if (!pose_model.is_ready())
+  {
+    std::fprintf(
+      stderr, "Failed to load pose model: %s\n", pose_model_path.c_str());
+    return 1;
+  }
+
+  WindowingBuffer window_buffer;
+
+  /* caps how far capture can run ahead of processing */
   constexpr size_t kQueueCapacity = 8;
   ThreadSafeQueue<Frame> frame_queue(kQueueCapacity);
   std::atomic<bool> stop_requested{false};
@@ -245,7 +292,7 @@ int main
       break;
     }
 
-    offload_to_pose_estimation(*frame);
+    process_frame(*frame, pose_model, window_buffer);
   }
 
   capture_thread.join();
