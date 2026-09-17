@@ -8,5 +8,5 @@ libs/
 # Will upload later with proper source attribution/credits
 data/
 
-pyskl/
+pyskl/*
 stgcn_pipeline_env/
