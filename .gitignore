@@ -7,3 +7,6 @@ libs/
 # Our video files will go here
 # Will upload later with proper source attribution/credits
 data/
+
+pyskl/*
+stgcn_pipeline_env/

@@ -1,0 +1,95 @@
+model = dict(
+    type='RecognizerGCN',
+    backbone=dict(
+        type='STGCN',
+        tcn_type='dwstcn',
+        graph_cfg=dict(layout='coco', mode='spatial')),
+    cls_head=dict(type='GCNHead', num_classes=51, in_channels=256))
+dataset_type = 'PoseDataset'
+ann_file = '/content/pyskl_data/hmdb51_hrnet.pkl'
+train_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+val_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100, num_clips=1),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+test_pipeline = [
+    dict(type='PreNormalize2D'),
+    dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+    dict(type='UniformSample', clip_len=100, num_clips=10),
+    dict(type='PoseDecode'),
+    dict(type='FormatGCNInput', num_person=2),
+    dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+    dict(type='ToTensor', keys=['keypoint'])
+]
+data = dict(
+    videos_per_gpu=16,
+    workers_per_gpu=2,
+    test_dataloader=dict(videos_per_gpu=1),
+    train=dict(
+        type='RepeatDataset',
+        times=5,
+        dataset=dict(
+            type='PoseDataset',
+            ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+            pipeline=[
+                dict(type='PreNormalize2D'),
+                dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+                dict(type='UniformSample', clip_len=100),
+                dict(type='PoseDecode'),
+                dict(type='FormatGCNInput', num_person=2),
+                dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+                dict(type='ToTensor', keys=['keypoint'])
+            ],
+            split='train1')),
+    val=dict(
+        type='PoseDataset',
+        ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+        pipeline=[
+            dict(type='PreNormalize2D'),
+            dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+            dict(type='UniformSample', clip_len=100, num_clips=1),
+            dict(type='PoseDecode'),
+            dict(type='FormatGCNInput', num_person=2),
+            dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+            dict(type='ToTensor', keys=['keypoint'])
+        ],
+        split='test1'),
+    test=dict(
+        type='PoseDataset',
+        ann_file='/content/pyskl_data/hmdb51_hrnet.pkl',
+        pipeline=[
+            dict(type='PreNormalize2D'),
+            dict(type='GenSkeFeat', dataset='coco', feats=['j']),
+            dict(type='UniformSample', clip_len=100, num_clips=10),
+            dict(type='PoseDecode'),
+            dict(type='FormatGCNInput', num_person=2),
+            dict(type='Collect', keys=['keypoint', 'label'], meta_keys=[]),
+            dict(type='ToTensor', keys=['keypoint'])
+        ],
+        split='test1'))
+optimizer = dict(
+    type='SGD', lr=0.1, momentum=0.9, weight_decay=0.0005, nesterov=True)
+optimizer_config = dict(grad_clip=None)
+lr_config = dict(policy='CosineAnnealing', min_lr=0, by_epoch=False)
+total_epochs = 16
+checkpoint_config = dict(interval=1)
+evaluation = dict(interval=1, metrics=['top_k_accuracy'])
+log_config = dict(interval=100, hooks=[dict(type='TextLoggerHook')])
+log_level = 'INFO'
+work_dir = '/content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51'
+dist_params = dict(backend='gloo')
+gpu_ids = range(0, 1)
+resume_from = '/content/drive/MyDrive/wes237b_project/work_dirs/lite_stgcn_hmdb51/latest.pth'
