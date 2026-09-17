@@ -4,9 +4,9 @@ The goal of our project is to explore a real-time, low-latency human intent reco
 Setup:
 1. Install OpenCV with apt (`sudo apt install libopencv-dev`). Make sure `OpenCV_INCLUDE_DIRS` and `OpenCV_LIBS` environment variables are set properly.
 
-2. Download the below version of Qualcomm Neural Processing SDK (QAIRT) from [here](https://softwarecenter.qualcomm.com/api/download/software/sdks/Qualcomm_AI_Runtime_Community/All/2.50.0.260828/v2.50.0.260828.zip).
+2. Download the below version of Qualcomm Neural Processing SDK (QAIRT) from [here](https://softwarecenter.qualcomm.com/api/download/software/qualcomm_neural_processing_sdk/v2.22.6.240515.zip). This SDK version was confirmed to work with the Thundercomm Rubik Pi 3 board, with Ubuntu 24.04.
 
-3. Create `libs/qairt` under the project root and unzip the QAIRT SDK zip file to it. `v2.50.0.260828` folder should be at `PROJECT_ROOT/libs/qairt`.
+3. Create `libs/qairt` under the project root and unzip the QAIRT SDK zip file to it. `2.22.6.240515` folder should be at `PROJECT_ROOT/libs/qairt`.
 
 4. Install cmake with apt.
 
