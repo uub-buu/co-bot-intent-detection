@@ -253,7 +253,7 @@ int main
   }
 
   const std::string pose_model_path =
-    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite.dlc";
+    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite_quantized.dlc";
 
   std::optional<VideoSource> source;
   source.emplace(std::string(argv[1]));
