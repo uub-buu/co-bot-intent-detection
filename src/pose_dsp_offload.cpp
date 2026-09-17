@@ -68,8 +68,14 @@ PoseDSPOffload::PoseDSPOffload
   builder_handle_ = Snpe_SNPEBuilder_Create(container_handle_);
   Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_, runtime_list_handle);
   Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_, false);
+
+  Snpe_StringList_Handle_t output_tensors_handle = Snpe_StringList_Create();
+  Snpe_StringList_Append(output_tensors_handle, "Identity");
+  Snpe_SNPEBuilder_SetOutputTensors(builder_handle_, output_tensors_handle);
+
   snpe_handle_ = Snpe_SNPEBuilder_Build(builder_handle_);
 
+  Snpe_StringList_Delete(output_tensors_handle);
   Snpe_RuntimeList_Delete(runtime_list_handle);
 
   if (!snpe_handle_)
@@ -142,7 +148,6 @@ Snpe_ITensor_Handle_t PoseDSPOffload::preprocess
     static_cast<int>(Snpe_TensorShape_At(input_shape_handle_, dims_offset + 1));
 
   cv::resize(rgb_frame, resized, cv::Size(target_width, target_height));
-  /* TODO: Check with model */
   resized.convertTo(float_frame, CV_32FC3, 1.0 / 255.0);
 
   tensor_handle = Snpe_Util_CreateITensor(input_shape_handle_);
@@ -163,7 +168,8 @@ Snpe_ITensor_Handle_t PoseDSPOffload::preprocess
   return tensor_handle;
 }
 
-namespace {
+namespace
+{
   inline float sigmoid
   (
     float x
@@ -192,21 +198,33 @@ bool PoseDSPOffload::postprocess
     return false;
   }
 
-  /* TODO: Might have to update after Brian's model. Below is with BlazePose */
   constexpr size_t kExpectedLandmarkTensorSize =
     kNumLandmarksRaw * kLandmarkValueStride;
 
   const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
+
+  /*
+   * DEBUG: dump every output tensor's name and size so we can see exactly
+   * what execute() actually returned, instead of guessing why the size
+   * search below is failing.
+   */
+  std::fprintf(
+    stderr, "[pose_dsp_offload] DEBUG: %zu output tensor(s) in map:\n",
+    num_outputs);
+
   for (size_t i = 0; i < num_outputs; ++i)
   {
     const char* name = Snpe_StringList_At(output_names_handle, i);
     candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, name);
 
+    std::fprintf(
+      stderr, "[pose_dsp_offload] DEBUG:   [%zu] name=%s size=%zu\n",
+      i, name, candidate ? Snpe_ITensor_GetSize(candidate) : 0);
+
     if (candidate &&
         kExpectedLandmarkTensorSize == Snpe_ITensor_GetSize(candidate))
     {
       landmark_tensor_handle = candidate;
-      break;
     }
   }
 
@@ -268,7 +286,19 @@ bool PoseDSPOffload::estimate
 
   output_map_handle = Snpe_TensorMap_Create();
 
-  Snpe_SNPE_ExecuteITensors(snpe_handle_, input_map_handle, output_map_handle);
+  /*
+   * DEBUG: this return value was never checked before -- capture and print
+   * it so we know whether execute() itself is reporting failure, rather
+   * than silently treating a failed execution as an empty/partial result.
+   * Using auto here since the exact return type (Snpe_ErrorCode_t vs bool,
+   * depending on SDK version) hasn't been confirmed against your headers.
+   */
+  const auto exec_result =
+    Snpe_SNPE_ExecuteITensors(snpe_handle_, input_map_handle, output_map_handle);
+
+  std::fprintf(
+    stderr, "[pose_dsp_offload] DEBUG: ExecuteITensors returned %d\n",
+    static_cast<int>(exec_result));
 
   ret = postprocess(output_map_handle, out_joints);
 
