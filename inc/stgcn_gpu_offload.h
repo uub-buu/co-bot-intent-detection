@@ -47,21 +47,6 @@ constexpr int kNumClasses    = 51;   // HMDB51
  * Type definitions
  ******************************************************************************/
 
- /* Joint: COCO-17 joint's (x, y, confidence structure) */
-struct Joint
-{
-  float x          = 0.0f;
-  float y          = 0.0f;
-  float confidence = 0.0f;
-};
-
-/* SkeletonFrame: One frame's joints, for up to kNumPerson people. */
-struct SkeletonFrame
-{
-  std::array<std::array<Joint, kNumCocoJoints>, kNumPerson> persons{};
-  int num_detected_persons = 0;
-};
-
 /*
  * ClassificationResult
  */
@@ -87,14 +72,15 @@ class StgcnGpuOffload
     /* classify: Returns false if the model isn't ready or the clip size is wrong. */
     bool classify
     (
-      const std::vector<SkeletonFrame>& clip,
-      ClassificationResult&             out_result
+      const std::vector<float>& window_tensor,
+      ClassificationResult&     out_result
     );
 
   private:
-    Snpe_ITensor_Handle_t preprocess(const std::vector<SkeletonFrame>& clip);
+    /* pass in results from windowing_buffer::add_frame*/
+    Snpe_ITensor_Handle_t preprocess(const std::vector<float>& window_tensor);
     bool postprocess(Snpe_TensorMap_Handle_t output_map_handle, ClassificationResult& out_result);
-
+    
     Snpe_DlContainer_Handle_t container_handle_t    = nullptr;
     Snpe_SNPEBuilder_Handle_t builder_handle_t     = nullptr;
     Snpe_SNPE_Handle_t        snpe_handle_t       = nullptr;

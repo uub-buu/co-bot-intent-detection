@@ -222,9 +222,9 @@ void process_frame
     return;
   }
 
-  const CocoFrame coco_joints = remap_mediapipe_to_coco17(mediapipe_joints);
-  const std::optional<std::vector<float>> window =
-    window_buffer.add_frame(coco_joints);
+  const CocoFrame raw_frame = remap_mediapipe_to_coco17(mediapipe_joints);
+  CocoFrame norm_frame = normalize_coco_frame(raw, original_frame_width, original_frame_height);
+  buffer.add_frame(norm_frame);  // WindowingBuffer
 
   if (window.has_value())
   {

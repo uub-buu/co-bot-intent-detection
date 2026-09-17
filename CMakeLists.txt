@@ -13,7 +13,8 @@ set(
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "inc/*.h" "inc/*.hpp")
 
-add_executable(cobid ${SOURCES} ${HEADERS})
+add_executable(cobid ${SOURCES} ${HEADERS}
+  src/normalization.cpp)
 
 target_include_directories(
   cobid

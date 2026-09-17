@@ -121,23 +121,25 @@ StgcnGpuOffload::~StgcnGpuOffload()
 
 Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
 (
-  const std::vector<SkeletonFrame>& clip
+  const std::vector<float>& window_tensor
 )
 {
   Snpe_ITensor_Handle_t tensor_handle = nullptr;
   void                  *tensor_data = nullptr;
 
   /* Sanity check: is clip 100 frames long*/
-  if (clip.size() != static_cast<size_t>(kClipLen))
+    if (window_tensor.size() != static_cast<size_t>(kWindowElementCount))
   {
     std::fprintf(
       stderr,
-      "[stgcn_gpu_offload] Expected clip of %d frames, got %zu\n",
-      kClipLen, clip.size());
+      "[stgcn_gpu_offload] Expected window tensor of %d elements, got %zu\n",
+      kWindowElementCount, window_tensor.size());
     return nullptr;
   }
 
+
   tensor_handle = Snpe_Util_CreateITensor(input_shape_handle_t);
+  /* Sanity Check*/
   if (!tensor_handle)
   {
     std::fprintf(
@@ -145,25 +147,9 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
     return nullptr;
   }
 
-  tensor_data = Snpe_ITensor_GetData(tensor_handle);
   /* this will be our 1D array for VRAM for the GPU*/
-  float* dst = static_cast<float*>(tensor_data);
-
-  size_t idx = 0;
-  for (int m = 0; m < kNumPerson; ++m)
-  {
-    for (int t = 0; t < kClipLen; ++t)
-    {
-      const auto& persons = clip[t].persons;
-      for (int v = 0; v < kNumCocoJoints; ++v)
-      {
-        const Joint& joint = persons[m][v];
-        dst[idx++] = joint.x;
-        dst[idx++] = joint.y;
-        dst[idx++] = joint.confidence;
-      }
-    }
-  }
+  tensor_data = Snpe_ITensor_GetData(tensor_handle);
+  std::memcpy(tensor_data, window_tensor.data(), window_tensor.size() * sizeof(float));
 
   return tensor_handle;
 }
@@ -199,7 +185,7 @@ bool StgcnGpuOffload::postprocess
     }
   }
 
-  if (nullptr == score_tensor_handle)
+  if (!score_tensor_handle)
   {
     std::fprintf(
       stderr,
@@ -210,8 +196,7 @@ bool StgcnGpuOffload::postprocess
     return false;
   }
 
-  const float* scores =
-    static_cast<const float*>(Snpe_ITensor_GetData(score_tensor_handle));
+  const float* scores = static_cast<const float*>(Snpe_ITensor_GetData(score_tensor_handle));
 
   /* argmax over raw logits */
   int   best_idx   = 0;
@@ -243,8 +228,9 @@ bool StgcnGpuOffload::postprocess
 
 bool StgcnGpuOffload::classify
 (
-  const std::vector<SkeletonFrame>& clip,
-  ClassificationResult&             out_result
+  const std::vector<float>& window_tensor,
+  ClassificationResult&     out_result
+
 )
 {
   bool                     ret = false;
@@ -258,14 +244,13 @@ bool StgcnGpuOffload::classify
   }
 
   input_tensor_handle = preprocess(clip);
-  if (nullptr == input_tensor_handle)
+  if (!input_tensor_handle)
   {
     return ret;
   }
 
   input_map_handle = Snpe_TensorMap_Create();
-  Snpe_TensorMap_Add(
-    input_map_handle, input_tensor_name.c_str(), input_tensor_handle);
+  Snpe_TensorMap_Add(input_map_handle, input_tensor_name.c_str(), input_tensor_handle);
 
   output_map_handle = Snpe_TensorMap_Create();
 
