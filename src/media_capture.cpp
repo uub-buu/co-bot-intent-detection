@@ -274,7 +274,7 @@ int main(
   }
 
   WindowingBuffer window_buffer;
-  
+
   const std::string stgcn_model_path =
       (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51.dlc";
 
@@ -305,7 +305,6 @@ int main(
     }
 
     process_frame(*frame, pose_model, window_buffer, stgcn_model);
-    ;
   }
 
   capture_thread.join();
