@@ -8,5 +8,8 @@ libs/
 # Will upload later with proper source attribution/credits
 data/
 
+# Local python virtual environments
+.venv/
+
 pyskl/*
 stgcn_pipeline_env/

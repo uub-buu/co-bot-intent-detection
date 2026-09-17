@@ -8,11 +8,13 @@ Setup:
 
 3. Create `libs/qairt` under the project root and unzip the QAIRT SDK zip file to it. `v2.50.0.260828` folder should be at `PROJECT_ROOT/libs/qairt`.
 
-4. Install cmake with apt
+4. Install cmake with apt.
 
-5. Go to project root and run `cmake -S . -B build` (one-time)
+5. Install FastRPC library with `sudo apt install -y qcom-fastrpc1`. This installs libcdsprpc.so.
 
-6. Build with `cmake --build build -j$(nproc)`
+6. Go to project root and run `cmake -S . -B build` (one-time)
 
-7. Run the program with `./build/cobid <video_file>`
+7. Build with `cmake --build build -j$(nproc)`
+
+8. Run the program with `./build/cobid <video_file>`
 
