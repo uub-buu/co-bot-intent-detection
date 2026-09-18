@@ -9,3 +9,4 @@ libs/
 
 pyskl/*
 *_venv/
+*_env/
