@@ -33,6 +33,7 @@
 #include "windowing_buffer.h"
 #include "stgcn_gpu_offload.h"
 #include "normalization.h"
+#include "class_labels.h"
 
 
 /*******************************************************************************
@@ -246,8 +247,9 @@ void process_frame
     if (stgcn_model.classify(*window, result))
     {
       std::printf(
-        "Frame %d: predicted class=%d confidence=%.3f\n",
-        frame.index, result.class_index, result.confidence);
+        "Frame %d: predicted class=%d (%s) confidence=%.3f\n",
+        frame.index, result.class_index, hmdb51_label(result.class_index),
+        result.confidence);
     }
   }
 }

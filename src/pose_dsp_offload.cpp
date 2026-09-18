@@ -203,23 +203,22 @@ bool PoseDSPOffload::postprocess
 
   const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
 
-  /*
-   * DEBUG: dump every output tensor's name and size so we can see exactly
-   * what execute() actually returned, instead of guessing why the size
-   * search below is failing.
-   */
+  #ifdef DEBUG
   std::fprintf(
     stderr, "[pose_dsp_offload] DEBUG: %zu output tensor(s) in map:\n",
     num_outputs);
+  #endif
 
   for (size_t i = 0; i < num_outputs; ++i)
   {
     const char* name = Snpe_StringList_At(output_names_handle, i);
     candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, name);
 
+    #ifdef DEBUG
     std::fprintf(
       stderr, "[pose_dsp_offload] DEBUG:   [%zu] name=%s size=%zu\n",
       i, name, candidate ? Snpe_ITensor_GetSize(candidate) : 0);
+    #endif
 
     if (candidate &&
         kExpectedLandmarkTensorSize == Snpe_ITensor_GetSize(candidate))
@@ -286,19 +285,14 @@ bool PoseDSPOffload::estimate
 
   output_map_handle = Snpe_TensorMap_Create();
 
-  /*
-   * DEBUG: this return value was never checked before -- capture and print
-   * it so we know whether execute() itself is reporting failure, rather
-   * than silently treating a failed execution as an empty/partial result.
-   * Using auto here since the exact return type (Snpe_ErrorCode_t vs bool,
-   * depending on SDK version) hasn't been confirmed against your headers.
-   */
   const auto exec_result =
     Snpe_SNPE_ExecuteITensors(snpe_handle_, input_map_handle, output_map_handle);
 
+  #ifdef DEBUG
   std::fprintf(
     stderr, "[pose_dsp_offload] DEBUG: ExecuteITensors returned %d\n",
     static_cast<int>(exec_result));
+  #endif
 
   ret = postprocess(output_map_handle, out_joints);
 
