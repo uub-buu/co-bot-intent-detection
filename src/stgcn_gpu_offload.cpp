@@ -20,19 +20,19 @@
 
 namespace
 {
-  bool is_gpu_available()
+  Snpe_Runtime_t choose_runtime()
   {
     if (Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_GPU))
     {
-      return true;
+      return SNPE_RUNTIME_GPU;
     }
 
     std::fprintf(
       stderr,
-      "[stgcn_gpu_offload] GPU runtime unavailable. Check that the \
-Adreno GPU driver/runtime is present.\n");
+      "[stgcn_gpu_offload] GPU runtime unavailable, falling back to CPU. \
+Check that the Adreno GPU driver/runtime is present.\n");
 
-    return false;
+    return SNPE_RUNTIME_CPU;
   }
 }
 
@@ -43,7 +43,13 @@ StgcnGpuOffload::StgcnGpuOffload
 {
   Snpe_StringList_Handle_t  input_names_handle = nullptr;
   Snpe_RuntimeList_Handle_t runtime_list_handle = nullptr;
-  
+
+  #ifdef DEBUG
+  Snpe_Util_InitializeLoggingPath(
+    SNPE_LOG_LEVEL_VERBOSE,
+    "/home/ubuntu/cobid/co-bot-intent-detection/snpe_logs");
+  #endif
+
   /* Read the .dlc file*/
   container_handle_t = Snpe_DlContainer_Open(model_path.c_str());
 
@@ -56,16 +62,15 @@ StgcnGpuOffload::StgcnGpuOffload
 
     return;
   }
-  /* Sanity check */
-  if (!is_gpu_available())
-  {
-    Snpe_DlContainer_Delete(container_handle_t);
-    container_handle_t = nullptr;
-    return;
-  }
-  /* create snpe runtime list with just GPU on it. This will allow builder to process*/
+
+  const Snpe_Runtime_t runtime = choose_runtime();
+
+  /*
+   * Create snpe runtime list with the selected runtime (GPU, or CPU if
+   * GPU is unavailable). This will allow builder to process
+   */
   runtime_list_handle = Snpe_RuntimeList_Create();
-  Snpe_RuntimeList_Add(runtime_list_handle, SNPE_RUNTIME_GPU);
+  Snpe_RuntimeList_Add(runtime_list_handle, runtime);
 
   builder_handle_t = Snpe_SNPEBuilder_Create(container_handle_t);
   Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_t, runtime_list_handle);
