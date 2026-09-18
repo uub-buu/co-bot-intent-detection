@@ -1,7 +1,7 @@
 # co-bot-intent-detection
 The goal of our project is to explore a real-time, low-latency human intent recognition system by deploying a quantized Lite-STGCN on the Qualcomm RB3. The system will leverage a custom heterogeneous hardware pipeline, utilize MediaPipe for pose estimation and offloading to the compute engine (Hexagon DSP) and graph convolutions to the Adreno GPU.
 
-## Setup:
+## Setup
 1. Install OpenCV with apt (`sudo apt install libopencv-dev`). Make sure `OpenCV_INCLUDE_DIRS` and `OpenCV_LIBS` environment variables are set properly.
 
 2. Download the below version of Qualcomm Neural Processing SDK (QAIRT) from [here](https://softwarecenter.qualcomm.com/api/download/software/qualcomm_neural_processing_sdk/v2.22.6.240515.zip). This SDK version was confirmed to work with the Thundercomm Rubik Pi 3 board, with Ubuntu 24.04.
