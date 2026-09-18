@@ -268,8 +268,9 @@ void process_frame
     return;
   }
 
+  #ifdef DEBUG
   /*
-   * TEMPORARY DEBUG: dump a few raw landmark values every 15 frames, to
+   * Print a few raw landmark values every 15 frames, to
    * check whether pose output is suspiciously similar/near-constant
    * across different videos (would indicate the quantized pose model is
    * losing precision) versus genuinely varying with the person's actual
@@ -300,6 +301,7 @@ void process_frame
       "  left_ankle:    %.4f, %.4f, %.4f\n",
       mediapipe_joints[27].x, mediapipe_joints[27].y, mediapipe_joints[27].visibility);
   }
+  #endif
 
   const CocoFrame raw_coco_frame = remap_mediapipe_to_coco17(mediapipe_joints);
 
@@ -351,7 +353,7 @@ int main
   }
 
   const std::string pose_model_path =
-    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite_quantized.dlc";
+    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite.dlc";
 
   /*
    * Serializes GPU inference against video decode -- concurrent use
@@ -379,7 +381,7 @@ int main
   WindowingBuffer window_buffer;
 
   const std::string stgcn_model_path =
-      (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51_matmul.dlc";
+    (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51_matmul.dlc";
 
   StgcnGpuOffload stgcn_model(stgcn_model_path);
 
