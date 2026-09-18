@@ -229,22 +229,10 @@ bool PoseDSPOffload::postprocess
 
   const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
 
-  #ifdef DEBUG
-  std::fprintf(
-    stderr, "[pose_dsp_offload] DEBUG: %zu output tensor(s) in map:\n",
-    num_outputs);
-  #endif
-
   for (size_t i = 0; i < num_outputs; ++i)
   {
     const char* name = Snpe_StringList_At(output_names_handle, i);
     candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, name);
-
-    #ifdef DEBUG
-    std::fprintf(
-      stderr, "[pose_dsp_offload] DEBUG:   [%zu] name=%s size=%zu\n",
-      i, name, candidate ? Snpe_ITensor_GetSize(candidate) : 0);
-    #endif
 
     if (candidate &&
         kExpectedLandmarkTensorSize == Snpe_ITensor_GetSize(candidate))
@@ -313,12 +301,6 @@ bool PoseDSPOffload::estimate
 
   const auto exec_result =
     Snpe_SNPE_ExecuteITensors(snpe_handle_, input_map_handle, output_map_handle);
-
-  #ifdef DEBUG
-  std::fprintf(
-    stderr, "[pose_dsp_offload] DEBUG: ExecuteITensors returned %d\n",
-    static_cast<int>(exec_result));
-  #endif
 
   ret = postprocess(output_map_handle, out_joints);
 
