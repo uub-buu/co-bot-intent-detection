@@ -31,6 +31,8 @@
 #include "joint_remap.h"
 #include "pose_dsp_offload.h"
 #include "windowing_buffer.h"
+#include "stgcn_gpu_offload.h"
+#include "normalization.h"
 
 
 /*******************************************************************************
@@ -210,10 +212,13 @@ void process_frame
 (
   const Frame&     frame,
   PoseDSPOffload&  pose_model,
-  WindowingBuffer& window_buffer
+  WindowingBuffer& window_buffer,
+  StgcnGpuOffload& stgcn_model
 )
 {
   JointFrame mediapipe_joints;
+  const int  frame_width = frame.image.cols;
+  const int  frame_height = frame.image.rows;
 
   if (!pose_model.estimate(frame.image, mediapipe_joints))
   {
@@ -222,16 +227,28 @@ void process_frame
     return;
   }
 
-  const CocoFrame coco_joints = remap_mediapipe_to_coco17(mediapipe_joints);
+  const CocoFrame raw_coco_frame = remap_mediapipe_to_coco17(mediapipe_joints);
+
+  const CocoFrame norm_frame =
+    normalize_coco_frame(raw_coco_frame, frame_width, frame_height);
+
   const std::optional<std::vector<float>> window =
-    window_buffer.add_frame(coco_joints);
+    window_buffer.add_frame(norm_frame);
+
+  std::printf(
+    "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
+    frame.index, window->size());
 
   if (window.has_value())
   {
-    /* TODO: GPU STGCN offload */
-    std::printf(
-      "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
-      frame.index, window->size());
+    ClassificationResult result;
+
+    if (stgcn_model.classify(*window, result))
+    {
+      std::printf(
+          "Frame %d: predicted class=%d confidence=%.3f\n",
+          frame.index, result.class_index, result.confidence);
+    }
   }
 }
 
@@ -274,6 +291,17 @@ int main
 
   WindowingBuffer window_buffer;
 
+  const std::string stgcn_model_path =
+      (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51.dlc";
+
+  StgcnGpuOffload stgcn_model(stgcn_model_path);
+
+  if (!stgcn_model.is_ready())
+  {
+    std::fprintf(
+        stderr, "Failed to load STGCN model: %s\n", stgcn_model_path.c_str());
+    return 1;
+  }
   /* caps how far capture can run ahead of processing */
   constexpr size_t kQueueCapacity = 8;
   ThreadSafeQueue<Frame> frame_queue(kQueueCapacity);
@@ -292,7 +320,7 @@ int main
       break;
     }
 
-    process_frame(*frame, pose_model, window_buffer);
+    process_frame(*frame, pose_model, window_buffer, stgcn_model);
   }
 
   capture_thread.join();
