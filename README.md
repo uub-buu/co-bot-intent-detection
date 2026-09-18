@@ -18,3 +18,25 @@ Setup:
 
 8. Run the program with `./build/cobid <video_file>`
 
+
+## Model Training Setup
+### Essentials
+1. Ensure Python `3.10` (this stack does not have wheels for 3.11+).
+
+2. `git clone https://github.com/uub-buu/co-bot-intent-detection.git`
+
+3. `git submodule update --init --recursive -- <path/to/project>`
+
+4. `pip install -r requirements.txt`
+
+5. Clone this repo, then from inside it: 
+    * `pip install -e . --no-deps`
+
+6. `pip install -e . --no-deps`
+
+7. `export MPLBACKEND=Agg`
+
+
+## Running the model comparison
+
+`python compare_models.py`
