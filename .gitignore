@@ -8,4 +8,4 @@ libs/
 .venv/
 
 pyskl/*
-stgcn_pipeline_env/
+*_venv/

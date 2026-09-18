@@ -58,6 +58,8 @@ grep -n "^import collections" "${PYTHON_SITE_PACKAGES}/helper.py"
 sed -i '/^import collections$/a import collections.abc' \
     "${PYTHON_SITE_PACKAGES}/helper.py"
 
+### Set protobuff runtime to pure-Python mode
+export PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION=python
 ## Running the model comparison
 
 `python compare_models.py`
