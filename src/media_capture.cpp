@@ -235,19 +235,19 @@ void process_frame
   const std::optional<std::vector<float>> window =
     window_buffer.add_frame(norm_frame);
 
-  std::printf(
-    "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
-    frame.index, window->size());
-
   if (window.has_value())
   {
+    std::printf(
+      "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
+      frame.index, window->size());
+
     ClassificationResult result;
 
     if (stgcn_model.classify(*window, result))
     {
       std::printf(
-          "Frame %d: predicted class=%d confidence=%.3f\n",
-          frame.index, result.class_index, result.confidence);
+        "Frame %d: predicted class=%d confidence=%.3f\n",
+        frame.index, result.class_index, result.confidence);
     }
   }
 }
