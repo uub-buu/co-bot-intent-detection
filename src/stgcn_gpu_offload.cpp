@@ -256,6 +256,24 @@ bool StgcnGpuOffload::classify
     return false;
   }
 
+  // <-- moved here: runs on every NORMAL, successful call
+  {
+    static int dump_count = 0;
+    if (dump_count < 10)
+    {
+      std::string path = "/home/buu/workspace/WES237B/co-bot-intent-detection/calib_" +
+                          std::to_string(dump_count) + ".raw";
+      FILE* f = std::fopen(path.c_str(), "wb");
+      if (f)
+      {
+        std::fwrite(window_tensor.data(), sizeof(float), window_tensor.size(), f);
+        std::fclose(f);
+        std::fprintf(stderr, "[stgcn_gpu_offload] Dumped %s\n", path.c_str());
+      }
+      ++dump_count;
+    }
+  }
+
   input_tensor_handle = preprocess(window_tensor);
   if (nullptr == input_tensor_handle)
   {
