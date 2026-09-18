@@ -12,7 +12,9 @@ set(
   QAIRT_ROOT "${CMAKE_SOURCE_DIR}/libs/qairt/${QAIRT_VER}"
   CACHE PATH "Qualcomm AI Runtime SDK location")
 
-set(QAIRT_LIB_DIR "${QAIRT_ROOT}/lib/aarch64-ubuntu-gcc9.4")
+if(NOT DEFINED QAIRT_LIB_DIR)
+  set(QAIRT_LIB_DIR "${QAIRT_ROOT}/lib/aarch64-ubuntu-gcc9.4")
+endif()
 
 file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "inc/*.h" "inc/*.hpp")
@@ -49,4 +51,3 @@ set_target_properties(
     PROPERTIES
       BUILD_RPATH "${QAIRT_LIB_DIR}"
 )
-
