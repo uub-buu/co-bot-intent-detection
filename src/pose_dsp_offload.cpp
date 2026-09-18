@@ -22,6 +22,25 @@ namespace
     bool prefer_dsp
   )
   {
+    /*
+     * DSP is deliberately never used for pose estimation, despite being
+     * nominally available and successfully building/executing without
+     * error. Confirmed via direct, isolated testing that DSP execution
+     * returns frozen output that does not vary with input at all -
+     * not just across frames of one video, but identical across
+     * completely different video files too. Ruled out as the cause:
+     *   - Concurrency with video decode (tested: full mutex serialization
+     *     of DSP against video decode, no change)
+     *   - VTCM retention (tested: Snpe_SNPE_SetDspVtcmRetention enabled, no
+     *     change)
+     *   - Kernel-level FastRPC failure (resolved itself after reboots; DSP
+     *     genuinely executes and reports success)
+     *
+     *  CPU is confirmed to produce correct, continuously varying output
+     *  on the exact same model and inputs.
+     */
+
+    #if 0
     if (prefer_dsp && Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_DSP))
     {
       return SNPE_RUNTIME_DSP;
@@ -30,6 +49,7 @@ namespace
     std::fprintf(
       stderr,
       "[pose_dsp_offload] DSP runtime unavailable, falling back to CPU\n");
+    #endif
 
     return SNPE_RUNTIME_CPU;
   }
@@ -48,6 +68,12 @@ PoseDSPOffload::PoseDSPOffload
   Snpe_Runtime_t            runtime = SNPE_RUNTIME_CPU;
   Snpe_StringList_Handle_t  input_names_handle = nullptr;
   Snpe_RuntimeList_Handle_t runtime_list_handle = nullptr;
+
+  #ifdef DEBUG_SNPE
+  Snpe_Util_InitializeLoggingPath(
+    SNPE_LOG_LEVEL_VERBOSE,
+    "/home/ubuntu/cobid/co-bot-intent-detection/snpe_logs_dsp");
+  #endif
 
   container_handle_ = Snpe_DlContainer_Open(model_path.c_str());
 

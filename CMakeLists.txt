@@ -18,7 +18,8 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "inc/*.h" "inc/*.hpp")
 
 add_executable(cobid ${SOURCES} ${HEADERS})
-target_compile_definitions(cobid PRIVATE DEBUG)
+#target_compile_definitions(cobid PRIVATE DEBUG)
+#target_compile_definitions(cobid PRIVATE DEBUG_SNPE)
 
 target_include_directories(
   cobid

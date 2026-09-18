@@ -1,8 +1,8 @@
 /*
   stgcn_gpu_offload.cpp
 
-  Implementation file for offloading the Lite-STGCN action classifier
-  to the Adreno GPU via SNPE.
+  Implementation file for offloading the Lite-STGCN action classifier via
+  SNPE. Tries GPU first, retries on CPU if the GPU build fails.
 */
 
 /*******************************************************************************
@@ -14,26 +14,60 @@
 #include <cstring>
 #include <numeric>
 
-#include "windowing_buffer.h"
 #include "stgcn_gpu_offload.h"
+#include "windowing_buffer.h"
 
 
-namespace
+bool StgcnGpuOffload::try_build
+(
+  Snpe_Runtime_t runtime
+)
 {
-  Snpe_Runtime_t choose_runtime()
+  Snpe_RuntimeList_Handle_t runtime_list_handle = nullptr;
+  Snpe_StringList_Handle_t  input_names_handle = nullptr;
+
+  runtime_list_handle = Snpe_RuntimeList_Create();
+  Snpe_RuntimeList_Add(runtime_list_handle, runtime);
+
+  builder_handle_t = Snpe_SNPEBuilder_Create(container_handle_t);
+  Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_t, runtime_list_handle);
+  Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_t, false);
+  Snpe_SNPEBuilder_SetInitCacheMode(builder_handle_t, 0);
+  Snpe_SNPEBuilder_SetPerformanceProfile(
+    builder_handle_t, SNPE_PERFORMANCE_PROFILE_DEFAULT);
+  Snpe_SNPEBuilder_SetDebugMode(builder_handle_t, 1);
+  snpe_handle_t = Snpe_SNPEBuilder_Build(builder_handle_t);
+
+  Snpe_RuntimeList_Delete(runtime_list_handle);
+
+  /* Sanity check: Did the network build for this runtime? */
+  if (!snpe_handle_t)
   {
-    if (Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_GPU))
-    {
-      return SNPE_RUNTIME_GPU;
-    }
-
-    std::fprintf(
-      stderr,
-      "[stgcn_gpu_offload] GPU runtime unavailable, falling back to CPU. \
-Check that the Adreno GPU driver/runtime is present.\n");
-
-    return SNPE_RUNTIME_CPU;
+    Snpe_SNPEBuilder_Delete(builder_handle_t);
+    builder_handle_t = nullptr;
+    return false;
   }
+
+  active_runtime_ = runtime;
+
+  input_names_handle = Snpe_SNPE_GetInputTensorNames(snpe_handle_t);
+
+  if (!input_names_handle || (0 == Snpe_StringList_Size(input_names_handle)))
+  {
+    std::fprintf(stderr, "[stgcn_gpu_offload] Model reports no input tensors\n");
+    Snpe_SNPE_Delete(snpe_handle_t);
+    snpe_handle_t = nullptr;
+    Snpe_SNPEBuilder_Delete(builder_handle_t);
+    builder_handle_t = nullptr;
+    return false;
+  }
+
+  input_tensor_name = Snpe_StringList_At(input_names_handle, 0);
+  /* use the input name to get input shape from SNPE objectt*/
+  input_shape_handle_t = Snpe_SNPE_GetInputDimensions(snpe_handle_t, input_tensor_name.c_str());
+  Snpe_StringList_Delete(input_names_handle);
+
+  return true;
 }
 
 StgcnGpuOffload::StgcnGpuOffload
@@ -41,13 +75,10 @@ StgcnGpuOffload::StgcnGpuOffload
   const std::string& model_path
 )
 {
-  Snpe_StringList_Handle_t  input_names_handle = nullptr;
-  Snpe_RuntimeList_Handle_t runtime_list_handle = nullptr;
-
-  #ifdef DEBUG
+  #ifdef DEBUG_SNPE
   Snpe_Util_InitializeLoggingPath(
     SNPE_LOG_LEVEL_VERBOSE,
-    "/home/ubuntu/cobid/co-bot-intent-detection/snpe_logs");
+    "/home/ubuntu/cobid/co-bot-intent-detection/snpe_logs_gpu");
   #endif
 
   /* Read the .dlc file*/
@@ -63,43 +94,30 @@ StgcnGpuOffload::StgcnGpuOffload
     return;
   }
 
-  const Snpe_Runtime_t runtime = choose_runtime();
-
   /*
-   * Create snpe runtime list with the selected runtime (GPU, or CPU if
-   * GPU is unavailable). This will allow builder to process
+   * Try GPU first. If the build fails -- currently expected, due to
+   * ReduceSum_Einsum_8_1 not validating on this board's GPU backend --
+   * retry targeting CPU instead of giving up. PSNPE's per-op CPU fallback
+   * was tried and abandoned here: PSNPE+GPU fails silently on this board
+   * with no diagnosable error (empty error string, no backend log, no
+   * diag log), while PSNPE+CPU and plain SNPEBuilder+GPU (up to the one
+   * op) both work individually -- so this whole-model retry is the
+   * reliable path available right now.
    */
-  runtime_list_handle = Snpe_RuntimeList_Create();
-  Snpe_RuntimeList_Add(runtime_list_handle, runtime);
-
-  builder_handle_t = Snpe_SNPEBuilder_Create(container_handle_t);
-  Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_t, runtime_list_handle);
-  Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_t, false);
-  /* This command will build our container into a runnable model for the GPU*/
-  snpe_handle_t = Snpe_SNPEBuilder_Build(builder_handle_t);
-  // we do not need the list after builder is configured
-  Snpe_RuntimeList_Delete(runtime_list_handle);
-  
-  /* Sanity check: Did containter build? will return nullptr if it did. */
-  if (!snpe_handle_t)
+  if (!try_build(SNPE_RUNTIME_GPU))
   {
-    std::fprintf(stderr, "[stgcn_gpu_offload] Failed to build SNPE instance!\n");
-    return;
+    std::fprintf(
+      stderr,
+      "[stgcn_gpu_offload] GPU build failed, retrying on CPU\n");
+
+    if (!try_build(SNPE_RUNTIME_CPU))
+    {
+      std::fprintf(stderr, "[stgcn_gpu_offload] Failed to build SNPE instance on CPU either!\n");
+      Snpe_DlContainer_Delete(container_handle_t);
+      container_handle_t = nullptr;
+      return;
+    }
   }
-
-  input_names_handle = Snpe_SNPE_GetInputTensorNames(snpe_handle_t);
-
-  if (!input_names_handle || (0 == Snpe_StringList_Size(input_names_handle)))
-  {
-    std::fprintf(stderr, "[stgcn_gpu_offload] Model reports no input tensors\n");
-    snpe_handle_t = nullptr;
-    return;
-  }
-
-  input_tensor_name = Snpe_StringList_At(input_names_handle, 0);
-  /* use the input name to get input shape from SNPE objectt*/
-  input_shape_handle_t = Snpe_SNPE_GetInputDimensions(snpe_handle_t, input_tensor_name.c_str());
-  Snpe_StringList_Delete(input_names_handle);
 }
 
 StgcnGpuOffload::~StgcnGpuOffload()
@@ -130,22 +148,10 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
   const std::vector<float>& window_tensor
 )
 {
-  Snpe_ITensor_Handle_t tensor_handle = nullptr;
   void                  *tensor_data = nullptr;
-
-  /* Sanity check: is clip 100 frames long*/
-    if (window_tensor.size() != static_cast<size_t>(kWindowElementCount))
-  {
-    std::fprintf(
-      stderr,
-      "[stgcn_gpu_offload] Expected window tensor of %d elements, got %zu\n",
-      kWindowElementCount, window_tensor.size());
-    return nullptr;
-  }
-
+  Snpe_ITensor_Handle_t  tensor_handle = nullptr;
 
   tensor_handle = Snpe_Util_CreateITensor(input_shape_handle_t);
-  /* Sanity Check*/
   if (!tensor_handle)
   {
     std::fprintf(
@@ -153,9 +159,12 @@ Snpe_ITensor_Handle_t StgcnGpuOffload::preprocess
     return nullptr;
   }
 
-  /* this will be our 1D array for VRAM for the GPU*/
   tensor_data = Snpe_ITensor_GetData(tensor_handle);
-  std::memcpy(tensor_data, window_tensor.data(), window_tensor.size() * sizeof(float));
+
+  const size_t tensor_bytes =
+    Snpe_ITensor_GetSize(tensor_handle) * sizeof(float);
+
+  std::memcpy(tensor_data, window_tensor.data(), tensor_bytes);
 
   return tensor_handle;
 }
@@ -166,68 +175,56 @@ bool StgcnGpuOffload::postprocess
   ClassificationResult&   out_result
 )
 {
-  Snpe_ITensor_Handle_t score_tensor_handle = nullptr;
+  Snpe_ITensor_Handle_t candidate = nullptr;
 
   Snpe_StringList_Handle_t output_names_handle =
     Snpe_TensorMap_GetTensorNames(output_map_handle);
 
-  /* Sanity check */
+  /* Sanity check(s) */
   if (!output_names_handle || (0 == Snpe_StringList_Size(output_names_handle)))
   {
     std::fprintf(stderr, "[stgcn_gpu_offload] No output tensors returned\n");
     return false;
   }
 
-  const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
-  for (size_t i = 0; i < num_outputs; ++i)
-  {
-    const char* name = Snpe_StringList_At(output_names_handle, i);
-    Snpe_ITensor_Handle_t candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, name);
+  const char* output_name = Snpe_StringList_At(output_names_handle, 0);
+  candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, output_name);
 
-    if (candidate && static_cast<size_t>(kNumClasses) == Snpe_ITensor_GetSize(candidate))
-    {
-      score_tensor_handle = candidate;
-      break;
-    }
-  }
-
-  if (!score_tensor_handle)
+  if (!candidate || (Snpe_ITensor_GetSize(candidate) != static_cast<size_t>(kNumClasses)))
   {
     std::fprintf(
-      stderr,
-      "[stgcn_gpu_offload] Could not find the %d-element score tensor among %zu outputs\n",
-      kNumClasses, num_outputs);
+      stderr, "[stgcn_gpu_offload] Unexpected output size: %zu (expected %d)\n",
+      candidate ? Snpe_ITensor_GetSize(candidate) : 0, kNumClasses);
 
     Snpe_StringList_Delete(output_names_handle);
     return false;
   }
 
-  const float* scores = static_cast<const float*>(Snpe_ITensor_GetData(score_tensor_handle));
+  const float* data = static_cast<const float*>(Snpe_ITensor_GetData(candidate));
 
-  /* argmax over raw logits */
-  int   best_idx   = 0;
-  float best_score = scores[0];
+  float best_score = data[0];
+  int   best_idx = 0;
+  float sum_exp = 0.f;
+
   for (int i = 1; i < kNumClasses; ++i)
   {
-    if (scores[i] > best_score)
+    if (data[i] > best_score)
     {
-      best_score = scores[i];
-      best_idx   = i;
+      best_score = data[i];
+      best_idx = i;
     }
   }
 
-  /* ssoftmax, computed only for human-readable confidence */
-  float sum_exp = 0.0f;
+  /* Softmax over the raw logits, shifted by the max for numeric stability.
+     Only the argmax class's probability is needed as a confidence value. */
   for (int i = 0; i < kNumClasses; ++i)
   {
-    sum_exp += std::exp(scores[i] - best_score);
+    sum_exp += std::exp(data[i] - best_score);
   }
 
-  const float confidence = 1.0f / sum_exp;
-
   out_result.class_index = best_idx;
-  out_result.raw_score    = best_score;
-  out_result.confidence   = confidence;
+  out_result.raw_score = best_score;
+  out_result.confidence = 1.0f / sum_exp;
 
   Snpe_StringList_Delete(output_names_handle);
   return true;
@@ -237,27 +234,37 @@ bool StgcnGpuOffload::classify
 (
   const std::vector<float>& window_tensor,
   ClassificationResult&     out_result
-
 )
 {
-  bool                     ret = false;
-  Snpe_TensorMap_Handle_t  input_map_handle = nullptr;
-  Snpe_TensorMap_Handle_t  output_map_handle = nullptr;
-  Snpe_ITensor_Handle_t    input_tensor_handle = nullptr;
+  bool                    ret = false;
+  Snpe_TensorMap_Handle_t input_map_handle = nullptr;
+  Snpe_ITensor_Handle_t   input_tensor_handle = nullptr;
+  Snpe_TensorMap_Handle_t output_map_handle = nullptr;
 
   if (!is_ready())
   {
     return ret;
   }
 
+  /* Sanity check(s) */
+  if (window_tensor.size() != static_cast<size_t>(kWindowElementCount))
+  {
+    std::fprintf(
+      stderr,
+      "[stgcn_gpu_offload] Unexpected window size: %zu (expected %d)\n",
+      window_tensor.size(), kWindowElementCount);
+    return false;
+  }
+
   input_tensor_handle = preprocess(window_tensor);
-  if (!input_tensor_handle)
+  if (nullptr == input_tensor_handle)
   {
     return ret;
   }
 
   input_map_handle = Snpe_TensorMap_Create();
-  Snpe_TensorMap_Add(input_map_handle, input_tensor_name.c_str(), input_tensor_handle);
+  Snpe_TensorMap_Add(
+    input_map_handle, input_tensor_name.c_str(), input_tensor_handle);
 
   output_map_handle = Snpe_TensorMap_Create();
 
@@ -271,4 +278,3 @@ bool StgcnGpuOffload::classify
 
   return ret;
 }
-
