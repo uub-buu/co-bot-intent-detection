@@ -74,10 +74,26 @@ class WindowingBuffer
      */
     std::optional<std::vector<float>> add_frame(const CocoFrame& frame);
 
+    /*
+     * flush
+     *
+     * Call once at end-of-stream (source exhausted) to handle videos
+     * shorter than kWindowFrameCount, which add_frame() never produces a
+     * window for on its own. If any frames were accumulated but fewer
+     * than kWindowFrameCount, pads up to kWindowFrameCount by cyclically
+     * repeating the frames already seen (index modulo frame count) --
+     * matching PySKL's UniformSampleFrames convention for short clips at
+     * eval time -- and returns the resulting window. Returns std::nullopt
+     * if no frames were ever accumulated, or if the stream was already
+     * long enough that add_frame() already emitted every window (nothing
+     * left to flush).
+     */
+    std::optional<std::vector<float>> flush();
+
     void reset();
 
   private:
-    std::vector<float> to_window_tensor() const;
+    std::vector<float> to_window_tensor(const std::vector<CocoFrame>& frames) const;
 
     std::deque<CocoFrame> frames_;
 };

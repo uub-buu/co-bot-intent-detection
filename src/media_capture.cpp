@@ -409,6 +409,35 @@ int main
 
     if (!frame.has_value())
     {
+      /*
+       * Video ended naturally. Handle videos shorter than
+       * kWindowFrameCount, which never triggered a window/classify via
+       * process_frame() on their own -- see WindowingBuffer::flush().
+       */
+      const std::optional<std::vector<float>> final_window = window_buffer.flush();
+
+      if (final_window.has_value())
+      {
+        ClassificationResult result;
+        bool                 classified;
+
+        std::printf(
+          "Video shorter than window size -- padded final window for classification.\n");
+
+        {
+          std::lock_guard<std::mutex> lock(gpu_video_mutex);
+          classified = stgcn_model.classify(*final_window, result);
+        }
+
+        if (classified)
+        {
+          std::printf(
+            "Final: predicted class=%d (%s) confidence=%.3f\n",
+            result.class_index, hmdb51_label(result.class_index),
+            result.confidence);
+        }
+      }
+
       break;
     }
 
