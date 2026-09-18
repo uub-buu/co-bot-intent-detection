@@ -268,7 +268,7 @@ void process_frame
     return;
   }
 
-  #ifdef DEBUG
+  
   /*
    * Print a few raw landmark values every 15 frames, to
    * check whether pose output is suspiciously similar/near-constant
@@ -284,6 +284,9 @@ void process_frame
     std::printf(
       "Frame %d input image checksum (B, G, R sums): %.1f, %.1f, %.1f\n",
       frame.index, image_checksum[0], image_checksum[1], image_checksum[2]);
+    std::printf(
+      "Frame %d dimensions: %d x %d (w x h)\n",   // <-- add this line
+      frame.index, frame_width, frame_height);
     std::printf("Frame %d landmarks (x, y, visibility):\n", frame.index);
     std::printf(
       "  nose:          %.4f, %.4f, %.4f\n",
@@ -301,7 +304,6 @@ void process_frame
       "  left_ankle:    %.4f, %.4f, %.4f\n",
       mediapipe_joints[27].x, mediapipe_joints[27].y, mediapipe_joints[27].visibility);
   }
-  #endif
 
   const CocoFrame raw_coco_frame = remap_mediapipe_to_coco17(mediapipe_joints);
 

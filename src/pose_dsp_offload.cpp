@@ -173,6 +173,9 @@ Snpe_ITensor_Handle_t PoseDSPOffload::preprocess
   const int target_width =
     static_cast<int>(Snpe_TensorShape_At(input_shape_handle_, dims_offset + 1));
 
+  target_width_  = target_width;
+  target_height_ = target_height;
+
   cv::resize(rgb_frame, resized, cv::Size(target_width, target_height));
   resized.convertTo(float_frame, CV_32FC3, 1.0 / 255.0);
 
@@ -208,6 +211,8 @@ namespace
 bool PoseDSPOffload::postprocess
 (
   Snpe_TensorMap_Handle_t output_map_handle,
+  int                     frame_width,
+  int                     frame_height,
   JointFrame&             out_joints
 )
 {
@@ -267,13 +272,16 @@ among %zu outputs\n",
 
   const float* data =
     static_cast<const float*>(Snpe_ITensor_GetData(landmark_tensor_handle));
-
+  
+  const float x_scale = static_cast<float>(frame_width)  / static_cast<float>(target_width_);
+  const float y_scale = static_cast<float>(frame_height) / static_cast<float>(target_height_);
+  
   for (int joint = 0; joint < kNumLandmarksBody; ++joint)
   {
     const float* lm = data + joint * kLandmarkValueStride;
     Landmark& out = out_joints[joint];
-    out.x = lm[0];
-    out.y = lm[1];
+    out.x = lm[0] * x_scale;   // was: out.x = lm[0];
+    out.y = lm[1] * y_scale;   // was: out.y = lm[1];
     out.z = lm[2];
     out.visibility = sigmoid(lm[3]);
     out.presence = sigmoid(lm[4]);
@@ -320,7 +328,7 @@ bool PoseDSPOffload::estimate
     static_cast<int>(exec_result));
   #endif
 
-  ret = postprocess(output_map_handle, out_joints);
+  ret = postprocess(output_map_handle, rgb_frame.cols, rgb_frame.rows, out_joints);
 
   Snpe_TensorMap_Delete(input_map_handle);
   Snpe_TensorMap_Delete(output_map_handle);

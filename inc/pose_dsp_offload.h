@@ -84,13 +84,21 @@ class PoseDSPOffload
 
   private:
     Snpe_ITensor_Handle_t preprocess(const cv::Mat& rgb_frame);
-    bool postprocess(Snpe_TensorMap_Handle_t output_map_handle, JointFrame& out_joints);
+    bool postprocess(  
+      Snpe_TensorMap_Handle_t output_map_handle,
+      int                     frame_width,
+      int                     frame_height,
+      JointFrame&             out_joints
+    );
 
     Snpe_DlContainer_Handle_t container_handle_ = nullptr;
     Snpe_SNPEBuilder_Handle_t builder_handle_ = nullptr;
     Snpe_SNPE_Handle_t snpe_handle_ = nullptr;
     Snpe_TensorShape_Handle_t input_shape_handle_ = nullptr;
     std::string input_tensor_name_;
+
+    int target_width_  = 0;
+    int target_height_ = 0;
 };
 
 #endif /* POSE_DSP_OFFLOAD_H */
