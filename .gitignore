@@ -4,10 +4,6 @@ build/
 # Third-party libraries
 libs/
 
-# Our video files will go here
-# Will upload later with proper source attribution/credits
-data/
-
 # Local python virtual environments
 .venv/
 
