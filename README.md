@@ -29,13 +29,34 @@ The goal of our project is to explore a real-time, low-latency human intent reco
 
 4. `pip install -r requirements.txt`
 
-5. Clone this repo, then from inside it: 
-    * `pip install -e . --no-deps`
-
 6. `pip install -e . --no-deps`
 
 7. `export MPLBACKEND=Agg`
 
+
+
+## Building STGCN .dlc file
+
+### Python Environment Dependencies
+* pip install onnx==1.9.0
+* pip install "protobuf<4"
+* pip install "numpy<1.24"
+
+### Linux Dependencies
+* sudo apt update
+* sudo apt install libc++1 libc++abi1 protobuf-compiler
+
+### Patch ONNX Iterable 
+PYTHON_SITE_PACKAGES=$(python3 -c "import onnx, os; print(os.path.dirname(onnx.__file__))")
+
+sed -i 's/collections\.Iterable/collections.abc.Iterable/' \
+    "${PYTHON_SITE_PACKAGES}/helper.py"
+
+#### Confirm collections.abc is actually imported near the top:
+grep -n "^import collections" "${PYTHON_SITE_PACKAGES}/helper.py"
+#### If "import collections.abc" isn't already there, add it:
+sed -i '/^import collections$/a import collections.abc' \
+    "${PYTHON_SITE_PACKAGES}/helper.py"
 
 ## Running the model comparison
 
