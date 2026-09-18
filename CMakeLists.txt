@@ -32,6 +32,7 @@ target_link_directories(
     PRIVATE
       ${QAIRT_LIB_DIR}
 )
+target_link_options(cobid PRIVATE "-Wl,--allow-shlib-undefined")
 
 target_link_libraries(
   cobid
