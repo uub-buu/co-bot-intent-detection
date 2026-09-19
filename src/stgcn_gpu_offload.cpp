@@ -263,7 +263,7 @@ bool StgcnGpuOffload::classify
     if (dump_count < 10)
     {
       /* TODO: Hard-coded for uub-buu's setup */
-      std::string path = "/home/buu/workspace/WES237B/co-bot-intent-detection/calib_" +
+      std::string path = "${HOME}/co-bot-intent-detection/calib_" +
                           std::to_string(dump_count) + ".raw";
       FILE* f = std::fopen(path.c_str(), "wb");
       if (f)
@@ -292,7 +292,7 @@ bool StgcnGpuOffload::classify
   Snpe_SNPE_ExecuteITensors(snpe_handle_t, input_map_handle, output_map_handle);
 
   ret = postprocess(output_map_handle, out_result);
-
+  // Free memory here
   Snpe_TensorMap_Delete(input_map_handle);
   Snpe_TensorMap_Delete(output_map_handle);
   Snpe_ITensor_Delete(input_tensor_handle);
