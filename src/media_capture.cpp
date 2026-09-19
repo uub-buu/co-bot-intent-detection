@@ -355,7 +355,7 @@ int main
   }
 
   const std::string pose_model_path =
-    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite.dlc";
+    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite_full.dlc";
 
   /*
    * Serializes GPU inference against video decode -- concurrent use

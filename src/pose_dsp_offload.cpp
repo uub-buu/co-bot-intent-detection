@@ -97,6 +97,7 @@ PoseDSPOffload::PoseDSPOffload
 
   Snpe_StringList_Handle_t output_tensors_handle = Snpe_StringList_Create();
   Snpe_StringList_Append(output_tensors_handle, "Identity");
+  Snpe_StringList_Append(output_tensors_handle, "Identity_3");
   Snpe_SNPEBuilder_SetOutputTensors(builder_handle_, output_tensors_handle);
 
   snpe_handle_ = Snpe_SNPEBuilder_Build(builder_handle_);
@@ -261,8 +262,11 @@ among %zu outputs\n",
   const float* data =
     static_cast<const float*>(Snpe_ITensor_GetData(landmark_tensor_handle));
   
-  const float x_scale = static_cast<float>(frame_width)  / static_cast<float>(target_width_);
-  const float y_scale = static_cast<float>(frame_height) / static_cast<float>(target_height_);
+  const float x_scale =
+    static_cast<float>(frame_width)  / static_cast<float>(target_width_);
+
+  const float y_scale =
+    static_cast<float>(frame_height) / static_cast<float>(target_height_);
   
   for (int joint = 0; joint < kNumLandmarksBody; ++joint)
   {
@@ -276,7 +280,93 @@ among %zu outputs\n",
   }
 
   Snpe_StringList_Delete(output_names_handle);
+
+  decode_heatmap_confidence(output_map_handle, out_joints);
+
   return true;
+}
+
+void PoseDSPOffload::decode_heatmap_confidence
+(
+  Snpe_TensorMap_Handle_t output_map_handle,
+  JointFrame&             out_joints
+)
+{
+  Snpe_ITensor_Handle_t candidate = nullptr;
+  Snpe_ITensor_Handle_t heatmap_tensor_handle = nullptr;
+
+  Snpe_StringList_Handle_t output_names_handle =
+    Snpe_TensorMap_GetTensorNames(output_map_handle);
+
+  /* Sanity check(s) */
+  if (!output_names_handle)
+  {
+    return;
+  }
+
+  const size_t num_outputs = Snpe_StringList_Size(output_names_handle);
+
+  for (size_t i = 0; i < num_outputs; ++i)
+  {
+    const char* name = Snpe_StringList_At(output_names_handle, i);
+    candidate = Snpe_TensorMap_GetTensor_Ref(output_map_handle, name);
+
+    if (candidate &&
+        static_cast<size_t>(kHeatmapElementCount) == Snpe_ITensor_GetSize(candidate))
+    {
+      heatmap_tensor_handle = candidate;
+      break;
+    }
+  }
+
+  if (nullptr == heatmap_tensor_handle)
+  {
+    /*
+     * Fall back to visibility -- keeps the pipeline working, just
+     * without the heatmap-based confidence improvement, if a given
+     * model doesn't expose this output.
+     */
+    std::fprintf(
+      stderr,
+      "[pose_dsp_offload] Heatmap tensor not found, falling back to \
+visibility for score\n");
+
+    for (int joint = 0; joint < kNumLandmarksBody; ++joint)
+    {
+      out_joints[joint].heatmap_confidence = out_joints[joint].visibility;
+    }
+
+    Snpe_StringList_Delete(output_names_handle);
+    return;
+  }
+
+  const float* heatmap_data =
+    static_cast<const float*>(Snpe_ITensor_GetData(heatmap_tensor_handle));
+
+  constexpr int kHeatmapPixels = kHeatmapResolution * kHeatmapResolution;
+
+  /*
+   * NHWC layout: [1, 64, 64, 39] -- channel c's value at pixel (h, w) is
+   * at index (h * kHeatmapResolution + w) * kNumLandmarksRaw + c.
+   */
+  for (int joint = 0; joint < kNumLandmarksBody; ++joint)
+  {
+    float max_value = -1e9f;
+
+    for (int pixel = 0; pixel < kHeatmapPixels; ++pixel)
+    {
+      const float value = heatmap_data[pixel * kNumLandmarksRaw + joint];
+
+      if (value > max_value)
+      {
+        max_value = value;
+      }
+    }
+
+    out_joints[joint].heatmap_confidence = sigmoid(max_value);
+  }
+
+  Snpe_StringList_Delete(output_names_handle);
 }
 
 bool PoseDSPOffload::estimate

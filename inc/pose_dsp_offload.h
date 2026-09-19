@@ -41,6 +41,16 @@ constexpr int kNumLandmarksBody = 33;
 /* x, y, z, visibility, presence per landmark */
 constexpr int kLandmarkValueStride = 5;
 
+/*
+ * Identity_3 output: [1, 64, 64, 39] per-landmark heatmaps (NHWC). Used to
+ * derive a heatmap-peak confidence score per landmark -- a closer match
+ * to HRNet's keypoint_score (which PySKL actually trained on) than
+ * BlazePose's own visibility/presence outputs, which are an
+ * occlusion/out-of-frame signal rather than a localization-confidence one.
+ */
+constexpr int kHeatmapResolution = 64;
+constexpr int kHeatmapElementCount = kHeatmapResolution * kHeatmapResolution * kNumLandmarksRaw;
+
 
 /*******************************************************************************
  * Type definitions
@@ -54,6 +64,14 @@ struct Landmark
   float z = 0.f;
   float visibility = 0.f;
   float presence = 0.f;
+
+  /*
+   * Heatmap-peak confidence, decoded from the Identity_3 output --
+   * this is what feeds CocoJoint::score downstream (see joint_remap.cpp),
+   * not visibility. Falls back to visibility if the heatmap tensor isn't
+   * found in a given model's output (see postprocess()).
+   */
+  float heatmap_confidence = 0.f;
 };
 
 using JointFrame = std::array<Landmark, kNumLandmarksBody>;
@@ -84,12 +102,16 @@ class PoseDSPOffload
 
   private:
     Snpe_ITensor_Handle_t preprocess(const cv::Mat& rgb_frame);
-    bool postprocess(  
+
+    bool postprocess
+    (  
       Snpe_TensorMap_Handle_t output_map_handle,
       int                     frame_width,
       int                     frame_height,
       JointFrame&             out_joints
     );
+
+    void decode_heatmap_confidence(Snpe_TensorMap_Handle_t output_map_handle, JointFrame& out_joints);
 
     Snpe_DlContainer_Handle_t container_handle_ = nullptr;
     Snpe_SNPEBuilder_Handle_t builder_handle_ = nullptr;
