@@ -77,7 +77,7 @@ std::vector<float> WindowingBuffer::to_window_tensor
       const int base =
         ((t * kNumJointsCoco17 + v) * kJointChannelsCoco) * kMaxPersons;
 
-      /* Person slot 0: real data. Channel order is x, y, score. */
+      /* Person slot 0: Channel order is x, y, score. */
       tensor[base + 0 * kMaxPersons] = joint.x;
       tensor[base + 1 * kMaxPersons] = joint.y;
       tensor[base + 2 * kMaxPersons] = joint.score;

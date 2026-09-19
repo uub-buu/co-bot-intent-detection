@@ -8,18 +8,7 @@
   queue. The consumer side of that queue runs the real pipeline: DSP pose
   estimation (PoseDSPOffload), MediaPipe -> COCO-17 joint remap, the CPU
   windowing buffer, and GPU STGCN offload (StgcnGpuOffload).
-
-  GPU inference and video decode are serialized against each other via
-  gpu_video_mutex: running both concurrently on this board's hardware
-  causes an unrecoverable lockup (confirmed via isolated testing -- GPU
-  inference alone and video decode alone both work fine; only running
-  them at the same time crashes the board). The same mutex also covers
-  DSP pose inference: DSP execution was returning frozen/stale output
-  regardless of input, suspected to be the same class of hardware
-  contention with concurrent video decode (not yet isolated/confirmed the
-  way the GPU case was -- this is the fix being tested). All three of
-  video decode, DSP inference, and GPU inference are mutually exclusive
-  with each other under this one mutex.
+  
 */
 
 /*******************************************************************************
@@ -138,11 +127,7 @@ class ThreadSafeQueue
 class VideoSource
 {
   public:
-    /*
-     * gpu_video_mutex must be held for the duration of every decode call
-     * -- see the file-level comment for why video decode and GPU
-     * inference cannot run concurrently on this board.
-     */
+    /* gpu_video_mutex must be held for the duration of every decode call */
     explicit VideoSource
     (
       const std::string& path,
@@ -231,9 +216,8 @@ void capture_loop
  * process_frame
  *
  * Runs one captured frame through the real pipeline: DSP pose estimation,
- * MediaPipe -> COCO-17 remap, the CPU windowing buffer, and GPU STGCN
- * offload once a window fills. gpu_video_mutex is held only around the
- * classify() call -- see the file-level comment for why.
+ * MediaPipe -> COCO-17 remap, the CPU windowing buffer, and GPU STGC offload once a window fills.
+ * 
  */
 void process_frame
 (
@@ -249,13 +233,7 @@ void process_frame
   const int  frame_height = frame.image.rows;
   bool       pose_ok;
 
-  /*
-   * gpu_video_mutex also covers DSP pose inference here, not just the
-   * STGCN GPU call below -- DSP and video decode running concurrently on
-   * this board is the suspected cause of frozen pose output (this was
-   * never actually isolated/tested the way GPU+video-decode was; only
-   * added after the freeze was traced back to DSP execution).
-   */
+  /* gpu_video_mutex for running DSP and video decoding concurrently. */
   {
     std::lock_guard<std::mutex> lock(gpu_video_mutex);
     pose_ok = pose_model.estimate(frame.image, mediapipe_joints);
@@ -271,11 +249,8 @@ void process_frame
  
   #ifdef DEBUG 
   /*
-   * Print a few raw landmark values every 5 frames, to
-   * check whether pose output is suspiciously similar/near-constant
-   * across different videos (would indicate the quantized pose model is
-   * losing precision) versus genuinely varying with the person's actual
-   * motion. Indices: 0=nose, 11=left_shoulder, 15=left_wrist,
+   * Print a few raw landmark values every 5 frames.
+   * Indices: 0=nose, 11=left_shoulder, 15=left_wrist,
    * 23=left_hip, 27=left_ankle.
    */
   if (0 == (frame.index % 5))
