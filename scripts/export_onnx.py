@@ -2,8 +2,7 @@ import torch
 import torch.nn as nn
 from mmcv import Config
 from pyskl.models import build_model
-
-# --- Load your trained lite model ---
+# hard coding files generated during model training
 cfg = Config.fromfile('/content/pyskl/configs/stgcn/stgcn_lite_hmdb51_hrnet/j.py')
 model = build_model(cfg.model)
 
@@ -14,7 +13,6 @@ checkpoint = torch.load(
 model.load_state_dict(checkpoint['state_dict'])
 model.eval()
 
-# --- Minimal wrapper: backbone + cls_head only, no training/multi-clip logic ---
 class InferenceWrapper(nn.Module):
     def __init__(self, backbone, cls_head):
         super().__init__()
@@ -29,15 +27,13 @@ class InferenceWrapper(nn.Module):
 wrapper = InferenceWrapper(model.backbone, model.cls_head)
 wrapper.eval()
 
-# --- Dummy input matching your actual pipeline's per-sample shape ---
-dummy_input = torch.randn(1, 2, 100, 17, 3)  # (N, M, T, V, C)
+dummy_input = torch.randn(1, 2, 100, 17, 3)  # This should be the dimensions (N, M, T, V, C)
 
-# --- Sanity check: does the wrapper run at all before exporting? ---
 with torch.no_grad():
     out = wrapper(dummy_input)
-print("Forward pass output shape:", out.shape)  # expect (1, 51) — one score per HMDB51 class
+print("Forward pass output shape:", out.shape)  
 
-# --- Export ---
+# Export portion
 torch.onnx.export(
     wrapper,
     dummy_input,
@@ -45,6 +41,6 @@ torch.onnx.export(
     input_names=['keypoint'],
     output_names=['action_scores'],
     opset_version=12,
-    dynamic_axes=None  # fixed shape — matches your RB3 pipeline's fixed clip_len=100
+    dynamic_axes=None
 )
 print("Export complete.")
