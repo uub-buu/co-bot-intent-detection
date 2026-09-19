@@ -32,10 +32,14 @@ bool StgcnGpuOffload::try_build
   builder_handle_t = Snpe_SNPEBuilder_Create(container_handle_t);
   Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_t, runtime_list_handle);
   Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_t, false);
-  Snpe_SNPEBuilder_SetInitCacheMode(builder_handle_t, 0);
+  Snpe_SNPEBuilder_SetInitCacheMode(builder_handle_t, 1);
   Snpe_SNPEBuilder_SetPerformanceProfile(
-    builder_handle_t, SNPE_PERFORMANCE_PROFILE_DEFAULT);
+    builder_handle_t, SNPE_PERFORMANCE_PROFILE_HIGH_PERFORMANCE);
+
+  #ifdef DEBUG
   Snpe_SNPEBuilder_SetDebugMode(builder_handle_t, 1);
+  #endif
+
   snpe_handle_t = Snpe_SNPEBuilder_Build(builder_handle_t);
 
   Snpe_RuntimeList_Delete(runtime_list_handle);

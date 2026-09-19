@@ -84,6 +84,13 @@ PoseDSPOffload::PoseDSPOffload
   builder_handle_ = Snpe_SNPEBuilder_Create(container_handle_);
   Snpe_SNPEBuilder_SetRuntimeProcessorOrder(builder_handle_, runtime_list_handle);
   Snpe_SNPEBuilder_SetUseUserSuppliedBuffers(builder_handle_, false);
+  Snpe_SNPEBuilder_SetInitCacheMode(builder_handle_, 1);
+   Snpe_SNPEBuilder_SetPerformanceProfile(
+    builder_handle_, SNPE_PERFORMANCE_PROFILE_HIGH_PERFORMANCE);
+
+  #ifdef DEBUG
+  Snpe_SNPEBuilder_SetDebugMode(builder_handle_, 1);
+  #endif
 
   Snpe_StringList_Handle_t output_tensors_handle = Snpe_StringList_Create();
   Snpe_StringList_Append(output_tensors_handle, "Identity");
