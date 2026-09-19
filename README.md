@@ -1,7 +1,11 @@
 # co-bot-intent-detection
 The goal of our project is to explore a real-time, low-latency human intent recognition system by deploying a quantized Lite-STGCN on the Qualcomm RB3. The system will leverage a custom heterogeneous hardware pipeline, utilize MediaPipe for pose estimation and offloading to the compute engine (Hexagon DSP) and graph convolutions to the Adreno GPU.
 
-<img width="1038" height="3945" alt="image" src="https://github.com/user-attachments/assets/82389581-8350-4d5a-ac41-18cfc6f81082" />
+<img width="2352" height="465" alt="part1" src="https://github.com/user-attachments/assets/a0c6c903-eee5-4cd4-a1ba-693d147826e8" />
+
+<img width="2352" height="483" alt="part2" src="https://github.com/user-attachments/assets/49f40519-f05a-4bf7-a447-f61bd089c3b3" />
+
+<img width="1821" height="591" alt="part3" src="https://github.com/user-attachments/assets/2e1de3e7-8a46-4e29-ac14-4a119c529c32" />
 
 ## Setup
 1. Install OpenCV with apt (`sudo apt install libopencv-dev`). Make sure `OpenCV_INCLUDE_DIRS` and `OpenCV_LIBS` environment variables are set properly.
