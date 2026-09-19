@@ -4,25 +4,17 @@
 /*
   stgcn_gpu_offload.h
 
-  SNPE offload for the Lite-STGCN action classifier. Uses the plain
-  SNPEBuilder API (not PSNPE -- PSNPE's GPU path fails silently on this
-  board with no diagnosable error, despite plain SNPEBuilder + GPU
-  correctly validating ~94% of this model's ops; see stgcn_gpu_offload.cpp
-  for the full history).
+  SNPE offload for the Lite-STGCN classifier. Uses plain SNPEBuilder,
+  not PSNPE; PSNPE's GPU path fails silently on this board with no
+  error, while plain SNPEBuilder+GPU validates ~94% of ops.
 
-  Tries to build for GPU first; if the build fails (as it currently does,
-  due to one unsupported op -- ReduceSum_Einsum_8_1, part of the graph
-  convolution's Einsum decomposition -- that the GPU backend cannot
-  validate), retries the build targeting CPU instead of giving up. This
-  trades away GPU acceleration on the ops that DO validate, in exchange for
-  a build that reliably succeeds.
+  Builds GPU first. If it fails (currently ReduceSum_Einsum_8_1, part
+  of the graph conv's Einsum decomposition, unsupported on GPU), retries
+  on CPU. Loses GPU speed on the ops that do validate, gains a build
+  that succeeds.
 
-  IMPORTANT ASSUMPTION (confirm with pose-estimation stage owner):
-  This class expects its input already remapped to COCO-17 joint order,
-  i.e. whatever comes out of BlazePose/MediaPipe (33 landmarks) must be
-  reduced/reordered to the 17-joint COCO layout the Lite-STGCN was trained
-  on BEFORE it reaches this class. That remapping is not this class's
-  responsibility -- see the SkeletonFrame comment below.
+  Assumes input is already COCO-17 ordered. Caller must remap
+  MediaPipe's 33 landmarks before calling this.
 */
 
 /*******************************************************************************
@@ -49,10 +41,10 @@
  * Data
  ******************************************************************************/
 
-constexpr int kNumCocoJoints = 17;   // graph_cfg layout='coco'
-constexpr int kClipLen       = 100;  // clip_len in UniformSample
-constexpr int kNumPerson     = 2;    // FormatGCNInput(num_person=2)
-constexpr int kNumClasses    = 51;   // HMDB51
+constexpr int kNumCocoJoints = 17;   /* graph_cfg layout='coco' */
+constexpr int kClipLen       = 100;  /* clip_len in UniformSample */
+constexpr int kNumPerson     = 2;    /* FormatGCNInput(num_person=2) */
+constexpr int kNumClasses    = 51;   /* HMDB51 */
 
 
 /*******************************************************************************
@@ -64,9 +56,9 @@ constexpr int kNumClasses    = 51;   // HMDB51
  */
 struct ClassificationResult
 {
-  int   class_index  = -1; // classification identifier index defied by HMDB51
-  float raw_score    = 0.0f;  // raw un-normalized score
-  float confidence   = 0.0f;  // softmax-derived confidence
+  int   class_index = -1;   /* HMDB51 class index */
+  float raw_score   = 0.0f; /* raw logit before softmax */
+  float confidence  = 0.0f; /* softmax probability of class_index */
 };
 
 class StgcnGpuOffload
@@ -87,12 +79,6 @@ class StgcnGpuOffload
       return snpe_handle_t != nullptr;
     }
 
-    /*
-     * Reports which runtime the model actually ended up built for, after
-     * the GPU-then-CPU-retry logic in the constructor runs. Useful for
-     * logging/reporting, since a "ready" instance may be running on either
-     * runtime depending on whether the GPU build succeeded.
-     */
     Snpe_Runtime_t active_runtime() const
     {
       return active_runtime_;
@@ -109,10 +95,8 @@ class StgcnGpuOffload
     /*
      * try_build
      *
-     * Attempts to build snpe_handle_t for the given runtime. Returns true
-     * on success. On failure, cleans up whatever partial state it created
-     * (builder_handle_t) so a subsequent retry with a different runtime
-     * starts clean.
+     * Builds snpe_handle_t for the given runtime. Cleans up partial state on
+     * failure so a retry starts clean (faced GPU issue otherwise!).
      */
     bool try_build
     (

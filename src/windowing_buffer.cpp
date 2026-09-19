@@ -39,8 +39,7 @@ std::optional<std::vector<float>> WindowingBuffer::flush()
 {
   std::vector<CocoFrame> padded_frames;
 
-  /* Nothing ever accumulated, or already long enough that add_frame()
-     emitted every window on its own -- nothing left to do here. */
+  /* Nothing accumulated, or already long enough that add_frame() covered it */
   if (frames_.empty() || (frames_.size() >= static_cast<size_t>(kWindowFrameCount)))
   {
     return std::nullopt;
@@ -68,8 +67,7 @@ std::vector<float> WindowingBuffer::to_window_tensor
   std::vector<float> tensor(kWindowElementCount, 0.f);
   int                t = 0;
 
-  /* Person slot 1 (the second position on the M axis) is left at its
-     zero-initialized value for every joint/channel below. */
+  /* Person slot 1 stays zero-initialized for every joint/channel below. */
   for (const CocoFrame& frame : frames)
   {
     for (int v = 0; v < kNumJointsCoco17; ++v)

@@ -4,13 +4,9 @@
 /*
   joint_remap.h
 
-  Maps MediaPipe/BlazePose's 33-landmark body topology down to COCO's
-  17-keypoint layout, maching with the Lite-STGCN model.
-
-  Note: MediaPipe has no direct equivalent for COCO's single eye point per side
-  (MediaPipe splits each eye into inner/center/outer landmarks) - the center eye
-  landmark is used as the closest match. All other COCO joints (ears,
-  shoulders, elbows, wrists, hips, knees, ankles) have 1:1 correspondence.
+  Maps MediaPipe's 33 landmarks to COCO's 17-keypoint layout for
+  Lite-STGCN. MediaPipe splits each eye into inner/center/outer; the
+  center point is used for COCO's single eye. All other joints map 1:1.
 */
 
 /*******************************************************************************

@@ -4,8 +4,8 @@
 /*
   normalization.h
 
-  Rescales a CocoFrame's (x, y) values into a [-1, 1] range relative to
-  the source frame's dimensions, matching training-time preprocessing.
+  Rescales CocoFrame x,y to [-1, 1] relative to frame size. Matches
+  training-time PreNormalize2D.
 */
 
 /*******************************************************************************
@@ -22,17 +22,14 @@
 /*
  * normalize_coco_frame
  *
- * frame_width / frame_height: the ORIGINAL video frame's dimensions (not
- * the model's resized input dimensions -- see the open question above).
+ * NOTE: frame_width / frame_height are the origianl video's resolution
  *
- * confidence (score) values are passed through unchanged; only x/y are
- * transformed.
  */
 CocoFrame normalize_coco_frame
 (
   const CocoFrame& frame,
-  int               frame_width,
-  int               frame_height
+  int              frame_width,
+  int              frame_height
 );
 
 #endif /* NORMALIZATION_H */

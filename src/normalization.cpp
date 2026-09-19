@@ -16,9 +16,8 @@
  ******************************************************************************/
 
 /*
- * Matches PySKL's PreNormalize2D default threshold (0.01) -- joints at or
- * below this confidence have their x/y zeroed rather than normalized,
- * same as the training pipeline does before normalizing.
+ * Matches PreNormalize2D's default threshold (0.01). Joints at or below
+ * this get x, y zeroed instead of normalized, same as training.
  */
 constexpr float kScoreThreshold = 0.01f;
 
@@ -43,8 +42,6 @@ CocoFrame normalize_coco_frame
   {
     if (frame[v].score <= kScoreThreshold)
     {
-      /* Matches PreNormalize2D: x/y zeroed for low-confidence joints,
-         score itself left untouched. */
       out[v].x = 0.0f;
       out[v].y = 0.0f;
       continue;

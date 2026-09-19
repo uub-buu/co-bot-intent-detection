@@ -42,11 +42,8 @@ constexpr int kNumLandmarksBody = 33;
 constexpr int kLandmarkValueStride = 5;
 
 /*
- * Identity_3 output: [1, 64, 64, 39] per-landmark heatmaps (NHWC). Used to
- * derive a heatmap-peak confidence score per landmark -- a closer match
- * to HRNet's keypoint_score (which PySKL actually trained on) than
- * BlazePose's own visibility/presence outputs, which are an
- * occlusion/out-of-frame signal rather than a localization-confidence one.
+ * Identity_3 heatmap output [1, 64, 64, 39], NHWC. Heatmap peak gives a
+ * confidence closer to HRNet's keypoint_score than visibility/presence.
  */
 constexpr int kHeatmapResolution = 64;
 constexpr int kHeatmapElementCount = kHeatmapResolution * kHeatmapResolution * kNumLandmarksRaw;
@@ -66,10 +63,8 @@ struct Landmark
   float presence = 0.f;
 
   /*
-   * Heatmap-peak confidence, decoded from the Identity_3 output --
-   * this is what feeds CocoJoint::score downstream (see joint_remap.cpp),
-   * not visibility. Falls back to visibility if the heatmap tensor isn't
-   * found in a given model's output (see postprocess()).
+   * Heatmap-peak confidence from Identity_3. Falls back to visibility if the
+   * heatmap tensor is missing.
    */
   float heatmap_confidence = 0.f;
 };
@@ -104,7 +99,7 @@ class PoseDSPOffload
     Snpe_ITensor_Handle_t preprocess(const cv::Mat& rgb_frame);
 
     bool postprocess
-    (  
+    (
       Snpe_TensorMap_Handle_t output_map_handle,
       int                     frame_width,
       int                     frame_height,

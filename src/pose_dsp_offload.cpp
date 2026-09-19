@@ -23,23 +23,12 @@ namespace
   )
   {
     /*
-     * DSP is deliberately never used for pose estimation, despite being
-     * nominally available and successfully building/executing without
-     * error. Confirmed via direct, isolated testing that DSP execution
-     * returns frozen output that does not vary with input at all -
-     * not just across frames of one video, but identical across
-     * completely different video files too. Ruled out as the cause:
-     *   - Concurrency with video decode (tested: full mutex serialization
-     *     of DSP against video decode, no change)
-     *   - VTCM retention (tested: Snpe_SNPE_SetDspVtcmRetention enabled, no
-     *     change)
-     *   - Kernel-level FastRPC failure (resolved itself after reboots; DSP
-     *     genuinely executes and reports success)
-     *
-     *  CPU is confirmed to produce correct, continuously varying output
-     *  on the exact same model and inputs.
+     * DSP not used for pose. It builds and runs fine but always returns
+     * frozen output, same across different videos. Not caused by
+     * video-decode contention, VTCM retention, or FastRPC failure; all
+     * ruled out. CPU gives correct, varying output on the same model
+     * and input.
      */
-
     #if 0
     if (prefer_dsp && Snpe_Util_IsRuntimeAvailable(SNPE_RUNTIME_DSP))
     {
@@ -261,19 +250,19 @@ among %zu outputs\n",
 
   const float* data =
     static_cast<const float*>(Snpe_ITensor_GetData(landmark_tensor_handle));
-  
+
   const float x_scale =
     static_cast<float>(frame_width)  / static_cast<float>(target_width_);
 
   const float y_scale =
     static_cast<float>(frame_height) / static_cast<float>(target_height_);
-  
+
   for (int joint = 0; joint < kNumLandmarksBody; ++joint)
   {
     const float* lm = data + joint * kLandmarkValueStride;
     Landmark& out = out_joints[joint];
-    out.x = lm[0] * x_scale;   // was: out.x = lm[0];
-    out.y = lm[1] * y_scale;   // was: out.y = lm[1];
+    out.x = lm[0] * x_scale;
+    out.y = lm[1] * y_scale;
     out.z = lm[2];
     out.visibility = sigmoid(lm[3]);
     out.presence = sigmoid(lm[4]);
@@ -321,11 +310,7 @@ void PoseDSPOffload::decode_heatmap_confidence
 
   if (nullptr == heatmap_tensor_handle)
   {
-    /*
-     * Fall back to visibility -- keeps the pipeline working, just
-     * without the heatmap-based confidence improvement, if a given
-     * model doesn't expose this output.
-     */
+    /* Falls back to visibility if the model has no heatmap output. */
     std::fprintf(
       stderr,
       "[pose_dsp_offload] Heatmap tensor not found, falling back to \

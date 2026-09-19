@@ -63,7 +63,7 @@ bool StgcnGpuOffload::try_build
   }
 
   input_tensor_name = Snpe_StringList_At(input_names_handle, 0);
-  /* use the input name to get input shape from SNPE objectt*/
+  /* Get input shape using the input name */
   input_shape_handle_t = Snpe_SNPE_GetInputDimensions(snpe_handle_t, input_tensor_name.c_str());
   Snpe_StringList_Delete(input_names_handle);
 
@@ -81,7 +81,7 @@ StgcnGpuOffload::StgcnGpuOffload
     "/home/ubuntu/cobid/co-bot-intent-detection/snpe_logs_gpu");
   #endif
 
-  /* Read the .dlc file*/
+  /* Read the .dlc file */
   container_handle_t = Snpe_DlContainer_Open(model_path.c_str());
 
   /* Sanity check */
@@ -95,14 +95,8 @@ StgcnGpuOffload::StgcnGpuOffload
   }
 
   /*
-   * Try GPU first. If the build fails -- currently expected, due to
-   * ReduceSum_Einsum_8_1 not validating on this board's GPU backend --
-   * retry targeting CPU instead of giving up. PSNPE's per-op CPU fallback
-   * was tried and abandoned here: PSNPE+GPU fails silently on this board
-   * with no diagnosable error (empty error string, no backend log, no
-   * diag log), while PSNPE+CPU and plain SNPEBuilder+GPU (up to the one
-   * op) both work individually -- so this whole-model retry is the
-   * reliable path available right now.
+   * Tries GPU first, retries on CPU if the build fails; see file
+   * header for why PSNPE isn't used instead.
    */
   if (!try_build(SNPE_RUNTIME_GPU))
   {
@@ -215,8 +209,10 @@ bool StgcnGpuOffload::postprocess
     }
   }
 
-  /* Softmax over the raw logits, shifted by the max for numeric stability.
-     Only the argmax class's probability is needed as a confidence value. */
+  /*
+   * Softmax over the raw logits, shifted by the max for numeric stability.
+   * Only the argmax class's probability is used.
+   */
   for (int i = 0; i < kNumClasses; ++i)
   {
     sum_exp += std::exp(data[i] - best_score);
@@ -256,11 +252,13 @@ bool StgcnGpuOffload::classify
     return false;
   }
 
-  // <-- moved here: runs on every NORMAL, successful call
+  #ifdef DEBUG
+  /* Dumps calibration input for the first few calls */
   {
     static int dump_count = 0;
     if (dump_count < 10)
     {
+      /* TODO: Hard-coded for uub-buu's setup */
       std::string path = "/home/buu/workspace/WES237B/co-bot-intent-detection/calib_" +
                           std::to_string(dump_count) + ".raw";
       FILE* f = std::fopen(path.c_str(), "wb");
@@ -273,6 +271,7 @@ bool StgcnGpuOffload::classify
       ++dump_count;
     }
   }
+  #endif
 
   input_tensor_handle = preprocess(window_tensor);
   if (nullptr == input_tensor_handle)

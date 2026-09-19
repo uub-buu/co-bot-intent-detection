@@ -1,7 +1,7 @@
 /*
   class_labels.cpp
 
-  Implementation file for the HMDB51 class-index-to-label lookup table
+  Implementation file for the HMDB51 class-index-to-label lookup table.
 */
 
 /*******************************************************************************
@@ -13,10 +13,7 @@
 
 namespace
 {
-  /*
-   * Alphabetical order, matching pyskl/tools/data/label_map/hmdb51.txt
-   * exactly. Index 9 is "dribble"; index 19 is "jump".
-   */
+  /* Match pyskl/tools/data/label_map/hmdb51.txt exactly! */
   const char* kHmdb51Labels[kNumClasses] =
   {
     "brush_hair",     "cartwheel", "catch",     "chew",           "clap",
@@ -33,7 +30,10 @@ namespace
   };
 }
 
-const char* hmdb51_label(int class_index)
+const char* hmdb51_label
+(
+  int class_index
+)
 {
   if (class_index < 0 || class_index >= kNumClasses)
   {
@@ -42,3 +42,4 @@ const char* hmdb51_label(int class_index)
 
   return kHmdb51Labels[class_index];
 }
+
