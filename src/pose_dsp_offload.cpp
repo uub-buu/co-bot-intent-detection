@@ -37,10 +37,11 @@ namespace
 
     std::fprintf(
       stderr,
-      "[pose_dsp_offload] DSP runtime unavailable, falling back to CPU\n");
+      "[pose_dsp_offload] DSP runtime unavailable, falling back to CPU/GPU\n");
     #endif
 
-    return SNPE_RUNTIME_CPU;
+    /* Fall back to GPU and not CPU - because why not */
+    return SNPE_RUNTIME_GPU;
   }
 }
 
