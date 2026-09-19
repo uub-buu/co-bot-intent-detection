@@ -270,14 +270,14 @@ void process_frame
 
   
   /*
-   * Print a few raw landmark values every 15 frames, to
+   * Print a few raw landmark values every 5 frames, to
    * check whether pose output is suspiciously similar/near-constant
    * across different videos (would indicate the quantized pose model is
    * losing precision) versus genuinely varying with the person's actual
    * motion. Indices: 0=nose, 11=left_shoulder, 15=left_wrist,
    * 23=left_hip, 27=left_ankle.
    */
-  if (0 == (frame.index % 15))
+  if (0 == (frame.index % 5))
   {
     const cv::Scalar image_checksum = cv::sum(frame.image);
 
@@ -285,7 +285,7 @@ void process_frame
       "Frame %d input image checksum (B, G, R sums): %.1f, %.1f, %.1f\n",
       frame.index, image_checksum[0], image_checksum[1], image_checksum[2]);
     std::printf(
-      "Frame %d dimensions: %d x %d (w x h)\n",   // <-- add this line
+      "Frame %d dimensions: %d x %d (w x h)\n",
       frame.index, frame_width, frame_height);
     std::printf("Frame %d landmarks (x, y, visibility):\n", frame.index);
     std::printf(
@@ -318,9 +318,11 @@ void process_frame
     ClassificationResult result;
     bool                 classified;
 
+    #ifdef DEBUG
     std::printf(
       "Frame %d: window ready (%zu floats) for GPU STGCN offload\n",
       frame.index, window->size());
+    #endif
 
     {
       std::lock_guard<std::mutex> lock(gpu_video_mutex);
