@@ -268,7 +268,8 @@ void process_frame
     return;
   }
 
-  
+ 
+  #ifdef DEBUG 
   /*
    * Print a few raw landmark values every 5 frames, to
    * check whether pose output is suspiciously similar/near-constant
@@ -304,6 +305,7 @@ void process_frame
       "  left_ankle:    %.4f, %.4f, %.4f\n",
       mediapipe_joints[27].x, mediapipe_joints[27].y, mediapipe_joints[27].visibility);
   }
+  #endif
 
   const CocoFrame raw_coco_frame = remap_mediapipe_to_coco17(mediapipe_joints);
 

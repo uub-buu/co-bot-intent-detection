@@ -20,34 +20,38 @@ file(GLOB SOURCES "src/*.cpp")
 file(GLOB HEADERS "inc/*.h" "inc/*.hpp")
 
 add_executable(cobid ${SOURCES} ${HEADERS})
-#target_compile_definitions(cobid PRIVATE DEBUG)
-#target_compile_definitions(cobid PRIVATE DEBUG_SNPE)
+add_executable(cobid_with_debug ${SOURCES} ${HEADERS})
 
-target_include_directories(
-  cobid
-    PRIVATE
-      inc
-      ${OpenCV_INCLUDE_DIRS}
-      ${QAIRT_ROOT}/include/SNPE
-)
+target_compile_definitions(cobid_with_debug PRIVATE DEBUG)
+#target_compile_definitions(cobid_with_debug PRIVATE DEBUG_SNPE)
 
-target_link_directories(
-  cobid
-    PRIVATE
-      ${QAIRT_LIB_DIR}
-)
-target_link_options(cobid PRIVATE "-Wl,--allow-shlib-undefined")
+foreach(target_name cobid cobid_with_debug)
+  target_include_directories(
+    ${target_name}
+      PRIVATE
+        inc
+        ${OpenCV_INCLUDE_DIRS}
+        ${QAIRT_ROOT}/include/SNPE
+  )
 
-target_link_libraries(
-  cobid
-    PRIVATE
-      ${OpenCV_LIBS}
-      Threads::Threads
-      SNPE
-)
+  target_link_directories(
+    ${target_name}
+      PRIVATE
+        ${QAIRT_LIB_DIR}
+  )
+  target_link_options(${target_name} PRIVATE "-Wl,--allow-shlib-undefined")
 
-set_target_properties(
-  cobid
-    PROPERTIES
-      BUILD_RPATH "${QAIRT_LIB_DIR}"
-)
+  target_link_libraries(
+    ${target_name}
+      PRIVATE
+        ${OpenCV_LIBS}
+        Threads::Threads
+        SNPE
+  )
+
+  set_target_properties(
+    ${target_name}
+      PROPERTIES
+        BUILD_RPATH "${QAIRT_LIB_DIR}"
+  )
+endforeach()
