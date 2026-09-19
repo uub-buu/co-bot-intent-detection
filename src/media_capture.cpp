@@ -355,7 +355,7 @@ int main
   }
 
   const std::string pose_model_path =
-    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite_full.dlc";
+    (argc >= 3) ? argv[2] : "model/dlc/pose_landmark_lite.dlc";
 
   /*
    * Serializes GPU inference against video decode -- concurrent use
@@ -383,7 +383,7 @@ int main
   WindowingBuffer window_buffer;
 
   const std::string stgcn_model_path =
-    (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51_matmul.dlc";
+    (argc >= 4) ? argv[3] : "model/dlc/lite_stgcn_hmdb51.dlc";
 
   StgcnGpuOffload stgcn_model(stgcn_model_path);
 
